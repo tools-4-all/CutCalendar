@@ -637,9 +637,9 @@ function loadCalendarEvents() {
                         return;
                     }
                     
-                    // Verifica che animalName esista
-                    if (!booking.animalName) {
-                        console.warn('Prenotazione senza animalName:', doc.id);
+                    // Verifica che userName esista
+                    if (!booking.userName) {
+                        console.warn('Prenotazione senza userName:', doc.id);
                     }
                     
                     let color = '#f39c12'; // pending
@@ -652,13 +652,23 @@ function loadCalendarEvents() {
                     // Crea titolo evento
                     const serviceNames = {
                         'taglio-capelli': 'Taglio',
-                        'bagno': 'Bagno',
-                        'taglio-unghie': 'Taglio Unghie',
-                        'pulizia-orecchie': 'Pulizia Orecchie',
-                        'taglio-pelo': 'Taglio Pelo'
+                        'piega': 'Piega',
+                        'colore': 'Colore',
+                        'meches': 'Meches',
+                        'balayage': 'Balayage',
+                        'taglio-e-piega': 'Taglio e Piega',
+                        'trattamento-capelli': 'Trattamento',
+                        'styling': 'Styling',
+                        'extension': 'Extension',
+                        'trattamento-viso': 'Trattamento Viso',
+                        'manicure': 'Manicure',
+                        'pedicure': 'Pedicure',
+                        'ceretta': 'Ceretta',
+                        'massaggio': 'Massaggio',
+                        'altro': 'Altro'
                     };
                     const serviceName = serviceNames[booking.service] || booking.service || 'Servizio';
-                    const title = `${booking.animalName || 'N/A'} - ${serviceName}`;
+                    const title = `${booking.userName || 'Cliente'} - ${serviceName}`;
                     
                     events.push({
                         id: doc.id,
@@ -746,13 +756,23 @@ function loadCalendarEvents() {
                                     
                                     const serviceNames = {
                                         'taglio-capelli': 'Taglio',
-                                        'bagno': 'Bagno',
-                                        'taglio-unghie': 'Taglio Unghie',
-                                        'pulizia-orecchie': 'Pulizia Orecchie',
-                                        'taglio-pelo': 'Taglio Pelo'
+                                        'piega': 'Piega',
+                                        'colore': 'Colore',
+                                        'meches': 'Meches',
+                                        'balayage': 'Balayage',
+                                        'taglio-e-piega': 'Taglio e Piega',
+                                        'trattamento-capelli': 'Trattamento',
+                                        'styling': 'Styling',
+                                        'extension': 'Extension',
+                                        'trattamento-viso': 'Trattamento Viso',
+                                        'manicure': 'Manicure',
+                                        'pedicure': 'Pedicure',
+                                        'ceretta': 'Ceretta',
+                                        'massaggio': 'Massaggio',
+                                        'altro': 'Altro'
                                     };
                                     const serviceName = serviceNames[booking.service] || booking.service || 'Servizio';
-                                    const title = `${booking.animalName || 'N/A'} - ${serviceName}`;
+                                    const title = `${booking.userName || 'Cliente'} - ${serviceName}`;
                                     
                                     events.push({
                                         id: doc.id,
@@ -845,16 +865,26 @@ function createAdminBookingCard(booking) {
     
     const date = timestampToDate(booking.dateTime);
     const serviceNames = {
-        'toelettatura-completa': 'Toelettatura Completa',
-        'bagno': 'Bagno',
-        'taglio-unghie': 'Taglio Unghie',
-        'pulizia-orecchie': 'Pulizia Orecchie',
-        'taglio-pelo': 'Taglio Pelo'
+        'taglio-capelli': 'Taglio Capelli',
+        'piega': 'Piega',
+        'colore': 'Colore',
+        'meches': 'Meches',
+        'balayage': 'Balayage',
+        'taglio-e-piega': 'Taglio e Piega',
+        'trattamento-capelli': 'Trattamento Capelli',
+        'styling': 'Styling',
+        'extension': 'Extension',
+        'trattamento-viso': 'Trattamento Viso',
+        'manicure': 'Manicure',
+        'pedicure': 'Pedicure',
+        'ceretta': 'Ceretta',
+        'massaggio': 'Massaggio',
+        'altro': 'Altro'
     };
 
     card.innerHTML = `
         <div class="booking-card-header">
-            <h4>${booking.animalName} (${booking.animalType})</h4>
+            <h4>${booking.userName || 'Cliente'}</h4>
             <span class="booking-status ${booking.status}">${booking.status}</span>
         </div>
         <p><strong>Cliente:</strong> ${booking.userName || booking.userEmail || 'N/A'}</p>
@@ -886,31 +916,23 @@ async function showBookingDetail(bookingId) {
             'piega': 'Piega',
             'colore': 'Colore',
             'meches': 'Meches',
+            'balayage': 'Balayage',
             'taglio-e-piega': 'Taglio e Piega',
+            'trattamento-capelli': 'Trattamento Capelli',
+            'styling': 'Styling',
+            'extension': 'Extension',
             'trattamento-viso': 'Trattamento Viso',
             'manicure': 'Manicure',
             'pedicure': 'Pedicure',
-            'massaggio': 'Massaggio',
             'ceretta': 'Ceretta',
-            'bagno': 'Bagno',
-            'taglio-unghie': 'Taglio Unghie',
-            'pulizia-orecchie': 'Pulizia Orecchie',
-            'taglio-pelo': 'Taglio Pelo'
+            'massaggio': 'Massaggio',
+            'altro': 'Altro',
         };
-
-        // Carica dati animale
-        let animalData = {};
-        if (booking.animalId) {
-            const animalDoc = await db.collection('animals').doc(booking.animalId).get();
-            if (animalDoc.exists) {
-                animalData = animalDoc.data();
-            }
-        }
 
         details.innerHTML = `
             <div class="detail-row">
                 <span class="detail-label">Cliente:</span>
-                <span class="detail-value">${booking.userName || booking.userEmail || 'N/A'}</span>
+                <span class="detail-value">${booking.userName || 'N/A'}</span>
             </div>
             ${booking.userEmail ? `
             <div class="detail-row">
@@ -924,14 +946,6 @@ async function showBookingDetail(bookingId) {
                 <span class="detail-value">${booking.userPhone}</span>
             </div>
             ` : ''}
-            <div class="detail-row">
-                <span class="detail-label">Cliente:</span>
-                <span class="detail-value">${booking.animalName} (${booking.animalType})</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Razza:</span>
-                <span class="detail-value">${animalData.breed || booking.animalBreed || 'N/A'}</span>
-            </div>
             <div class="detail-row">
                 <span class="detail-label">Servizio:</span>
                 <span class="detail-value">${serviceNames[booking.service] || booking.service}</span>
@@ -1088,9 +1102,7 @@ async function editBooking() {
         document.getElementById('bookingClientName').value = booking.userName || '';
         document.getElementById('bookingClientEmail').value = booking.userEmail || '';
         document.getElementById('bookingClientPhone').value = booking.userPhone || '';
-        document.getElementById('bookingAnimalName').value = booking.animalName || '';
-        document.getElementById('bookingAnimalType').value = booking.animalType || '';
-        document.getElementById('bookingAnimalBreed').value = booking.animalBreed || '';
+        document.getElementById('bookingClientNotes').value = booking.notes || '';
         document.getElementById('bookingService').value = booking.service || '';
         document.getElementById('bookingPrice').value = booking.price || '';
         document.getElementById('bookingNotes').value = booking.notes || '';
@@ -1418,10 +1430,6 @@ function loadAdvancedStats() {
             'pedicure': 'Pedicure',
             'massaggio': 'Massaggio',
             'ceretta': 'Ceretta',
-                        'bagno': 'Bagno',
-                        'taglio-unghie': 'Taglio Unghie',
-                        'pulizia-orecchie': 'Pulizia Orecchie',
-                        'taglio-pelo': 'Taglio Pelo'
                     };
                     
                     popularServicesEl.innerHTML = sortedServices.length > 0 
@@ -1462,25 +1470,26 @@ function loadAdvancedStats() {
                     if (upcoming.length > 0) {
                         const serviceNames = {
                             'taglio-capelli': 'Taglio Capelli',
-            'piega': 'Piega',
-            'colore': 'Colore',
-            'meches': 'Meches',
-            'taglio-e-piega': 'Taglio e Piega',
-            'trattamento-viso': 'Trattamento Viso',
-            'manicure': 'Manicure',
-            'pedicure': 'Pedicure',
-            'massaggio': 'Massaggio',
-            'ceretta': 'Ceretta',
-                            'bagno': 'Bagno',
-                            'taglio-unghie': 'Taglio Unghie',
-                            'pulizia-orecchie': 'Pulizia Orecchie',
-                            'taglio-pelo': 'Taglio Pelo'
+                            'piega': 'Piega',
+                            'colore': 'Colore',
+                            'meches': 'Meches',
+                            'balayage': 'Balayage',
+                            'taglio-e-piega': 'Taglio e Piega',
+                            'trattamento-capelli': 'Trattamento Capelli',
+                            'styling': 'Styling',
+                            'extension': 'Extension',
+                            'trattamento-viso': 'Trattamento Viso',
+                            'manicure': 'Manicure',
+                            'pedicure': 'Pedicure',
+                            'ceretta': 'Ceretta',
+                            'massaggio': 'Massaggio',
+                            'altro': 'Altro'
                         };
                         
                         upcomingEl.innerHTML = `<ul>${upcoming.map(doc => {
                             const booking = doc.data();
                             const date = booking.dateTime?.toDate();
-                            return `<li><span>${date ? date.toLocaleDateString('it-IT') : 'N/A'} - ${booking.animalName}</span><span>${serviceNames[booking.service] || booking.service}</span></li>`;
+                            return `<li><span>${date ? date.toLocaleDateString('it-IT') : 'N/A'} - ${booking.userName || 'Cliente'}</span><span>${serviceNames[booking.service] || booking.service}</span></li>`;
                         }).join('')}</ul>`;
                     } else {
                         upcomingEl.innerHTML = '<p>Nessuna prenotazione nei prossimi 7 giorni</p>';
@@ -1773,16 +1782,17 @@ async function generateReport() {
             'piega': 'Piega',
             'colore': 'Colore',
             'meches': 'Meches',
+            'balayage': 'Balayage',
             'taglio-e-piega': 'Taglio e Piega',
+            'trattamento-capelli': 'Trattamento Capelli',
+            'styling': 'Styling',
+            'extension': 'Extension',
             'trattamento-viso': 'Trattamento Viso',
             'manicure': 'Manicure',
             'pedicure': 'Pedicure',
-            'massaggio': 'Massaggio',
             'ceretta': 'Ceretta',
-            'bagno': 'Bagno',
-            'taglio-unghie': 'Taglio Unghie',
-            'pulizia-orecchie': 'Pulizia Orecchie',
-            'taglio-pelo': 'Taglio Pelo'
+            'massaggio': 'Massaggio',
+            'altro': 'Altro',
         };
         
         let totalRevenue = 0;
@@ -2167,14 +2177,12 @@ function generateCSVReport(bookings, totalRevenue, totalRevenueConfirmed, status
                 const clientName = booking.userName || booking.userEmail || 'N/A';
                 const email = booking.userEmail || '';
                 const phone = booking.userPhone || '';
-                const animalName = booking.animalName || 'N/A';
-                const animalType = booking.animalType || 'N/A';
                 const service = serviceNames[booking.service] || booking.service || 'N/A';
                 const price = booking.price || 0;
                 const status = booking.status || 'pending';
                 const payment = booking.paymentMethod || 'presenza';
                 
-                csvLines.push(`"${dateStr}","${clientName}","${email}","${phone}","${animalName}","${animalType}","${service}",€${price.toFixed(2)},"${status}","${payment}"`);
+                csvLines.push(`"${dateStr}","${clientName}","${email}","${phone}","${service}",€${price.toFixed(2)},"${status}","${payment}"`);
             });
         
         // Crea e scarica CSV
@@ -2209,16 +2217,17 @@ async function exportData() {
             'piega': 'Piega',
             'colore': 'Colore',
             'meches': 'Meches',
+            'balayage': 'Balayage',
             'taglio-e-piega': 'Taglio e Piega',
+            'trattamento-capelli': 'Trattamento Capelli',
+            'styling': 'Styling',
+            'extension': 'Extension',
             'trattamento-viso': 'Trattamento Viso',
             'manicure': 'Manicure',
             'pedicure': 'Pedicure',
-            'massaggio': 'Massaggio',
             'ceretta': 'Ceretta',
-            'bagno': 'Bagno',
-            'taglio-unghie': 'Taglio Unghie',
-            'pulizia-orecchie': 'Pulizia Orecchie',
-            'taglio-pelo': 'Taglio Pelo'
+            'massaggio': 'Massaggio',
+            'altro': 'Altro',
         };
         
         const csvData = [
@@ -2231,8 +2240,9 @@ async function exportData() {
             csvData.push([
                 date.toLocaleDateString('it-IT'),
                 date.toLocaleTimeString('it-IT'),
-                booking.userEmail,
-                booking.animalName,
+                booking.userName || 'N/A',
+                booking.userEmail || '',
+                booking.userPhone || '',
                 serviceNames[booking.service] || booking.service,
                 booking.status,
                 booking.paymentMethod
@@ -3043,17 +3053,15 @@ async function createAdminBooking() {
     const clientName = document.getElementById('bookingClientName').value;
     const clientEmail = document.getElementById('bookingClientEmail').value;
     const clientPhone = document.getElementById('bookingClientPhone').value;
-    const animalName = document.getElementById('bookingAnimalName').value;
-    const animalType = document.getElementById('bookingAnimalType').value;
-    const animalBreed = document.getElementById('bookingAnimalBreed').value;
+    const clientNotes = document.getElementById('bookingClientNotes').value;
     const service = document.getElementById('bookingService').value;
     const price = parseFloat(document.getElementById('bookingPrice').value);
     const dateTime = document.getElementById('bookingDateTime').value;
     const operatorId = document.getElementById('bookingOperator').value;
     const notes = document.getElementById('bookingNotes').value;
 
-    if (!clientName || !animalName || !animalType || !service || !dateTime || isNaN(price) || price <= 0) {
-        alert('Compila tutti i campi obbligatori (Nome Cliente, Animale, Tipo, Servizio, Prezzo, Data/Ora)');
+    if (!clientName || !service || !dateTime || isNaN(price) || price <= 0) {
+        alert('Compila tutti i campi obbligatori (Nome Cliente, Servizio, Prezzo, Data/Ora)');
         return;
     }
 
@@ -3118,15 +3126,12 @@ async function createAdminBooking() {
             userName: clientName,
             userEmail: userEmail,
             userPhone: clientPhone || '',
-            animalName: animalName,
-            animalType: animalType,
-            animalBreed: animalBreed || '',
             service: service,
             price: price,
             dateTime: firebase.firestore.Timestamp.fromDate(bookingDateTime),
             operatorId: operatorId || null,
             paymentMethod: 'presenza', // Solo pagamento in presenza
-            notes: notes || '',
+            notes: (notes || '') + (clientNotes ? '\nNote cliente: ' + clientNotes : ''),
             updatedAt: getTimestamp()
         };
 

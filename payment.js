@@ -142,12 +142,17 @@ const SERVICE_PRICES = {
     'piega': 2500, // €25.00
     'colore': 6000, // €60.00
     'meches': 8000, // €80.00
+    'balayage': 9000, // €90.00
     'taglio-e-piega': 5000, // €50.00
+    'trattamento-capelli': 4000, // €40.00
+    'styling': 3500, // €35.00
+    'extension': 12000, // €120.00
     'trattamento-viso': 4000, // €40.00
     'manicure': 2000, // €20.00
     'pedicure': 2500, // €25.00
+    'ceretta': 1500, // €15.00
     'massaggio': 5000, // €50.00
-    'ceretta': 1500 // €15.00
+    'altro': 3000 // €30.00 default
 };
 
 // Gestisci pagamento online per servizi

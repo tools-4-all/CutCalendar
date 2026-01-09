@@ -8,12 +8,16 @@ const SERVICE_DURATIONS = {
     'piega': 60, // 1 ora
     'colore': 120, // 2 ore
     'meches': 180, // 3 ore
+    'balayage': 180, // 3 ore
     'taglio-e-piega': 90, // 1.5 ore
+    'trattamento-capelli': 60, // 1 ora
+    'styling': 45, // 45 minuti
+    'extension': 240, // 4 ore
     'trattamento-viso': 60, // 1 ora
     'manicure': 45, // 45 minuti
     'pedicure': 60, // 1 ora
-    'massaggio': 60, // 1 ora
     'ceretta': 30, // 30 minuti
+    'massaggio': 60, // 1 ora
     'altro': 60 // default 1 ora
 };
 

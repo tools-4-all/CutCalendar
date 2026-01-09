@@ -28,12 +28,16 @@ window.sendBookingNotification = async function(bookingData, bookingId) {
             'piega': 'Piega',
             'colore': 'Colore',
             'meches': 'Meches',
+            'balayage': 'Balayage',
             'taglio-e-piega': 'Taglio e Piega',
+            'trattamento-capelli': 'Trattamento Capelli',
+            'styling': 'Styling',
+            'extension': 'Extension',
             'trattamento-viso': 'Trattamento Viso',
             'manicure': 'Manicure',
             'pedicure': 'Pedicure',
-            'massaggio': 'Massaggio',
             'ceretta': 'Ceretta',
+            'massaggio': 'Massaggio',
             'altro': 'Altro'
         };
 
