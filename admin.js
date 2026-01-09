@@ -544,6 +544,7 @@ async function loadAdminData() {
     loadDayBookings();
     loadStats();
     loadAdvancedStats();
+    loadAllBookings(); // Carica anche la lista completa delle prenotazioni
 }
 
 // Carica eventi calendario con sincronizzazione in tempo reale e filtri
@@ -825,12 +826,19 @@ function loadDayBookings() {
         
         const bookingsList = document.getElementById('adminBookingsList');
         
+        if (!bookingsList) {
+            console.warn('Elemento adminBookingsList non trovato in loadDayBookings');
+            return;
+        }
+        
         // Sincronizzazione in tempo reale - filtriamo lato client per retrocompatibilità
         adminDayBookingsUnsubscribe = db.collection('bookings')
             .where('dateTime', '>=', firebase.firestore.Timestamp.fromDate(startOfDay))
             .where('dateTime', '<=', firebase.firestore.Timestamp.fromDate(endOfDay))
             .orderBy('dateTime', 'asc')
             .onSnapshot((snapshot) => {
+                if (!bookingsList) return;
+                
                 bookingsList.innerHTML = '';
 
                 // Filtra lato client per companyId
@@ -851,6 +859,9 @@ function loadDayBookings() {
                 });
             }, (error) => {
                 console.error('Errore nel listener prenotazioni giornaliere:', error);
+                if (bookingsList) {
+                    bookingsList.innerHTML = '<p style="color: red;">Errore nel caricamento prenotazioni. Controlla la console per dettagli.</p>';
+                }
             });
     } catch (error) {
         console.error('Errore nel caricamento prenotazioni:', error);
@@ -1027,6 +1038,7 @@ async function updateBookingStatus(newStatus) {
 
         modal.classList.remove('show');
         loadAdminData();
+        loadAllBookings();
         alert(`Prenotazione ${newStatus} con successo!`);
     } catch (error) {
         alert('Errore nell\'aggiornamento: ' + error.message);
@@ -1063,6 +1075,7 @@ async function markBookingCompleted() {
 
         modal.classList.remove('show');
         loadAdminData();
+        loadAllBookings();
         alert('Prenotazione segnata come completata!');
     } catch (error) {
         console.error('Errore nel completamento prenotazione:', error);
@@ -1191,6 +1204,7 @@ async function deleteBooking() {
         
         modal.classList.remove('show');
         loadAdminData();
+        loadAllBookings();
         alert('Prenotazione eliminata con successo!');
     } catch (error) {
         console.error('Errore nell\'eliminazione prenotazione:', error);
@@ -1300,34 +1314,47 @@ function loadAllBookings() {
         
         const bookingsList = document.getElementById('adminBookingsList');
         
+        if (!bookingsList) {
+            console.warn('Elemento adminBookingsList non trovato');
+            return;
+        }
+        
         allBookingsUnsubscribe = query
             .orderBy('dateTime', 'desc')
             .onSnapshot((snapshot) => {
+                if (!bookingsList) return;
+                
                 bookingsList.innerHTML = '';
 
-                if (snapshot.empty) {
+                // Filtra per companyId lato client
+                const filteredDocs = snapshot.docs.filter(doc => {
+                    const booking = doc.data();
+                    // Filtra per companyId
+                    if (booking.companyId && booking.companyId !== currentUser.uid) {
+                        return false; // Salta prenotazioni di altre aziende
+                    }
+                    // Filtro operatore
+                    if (currentFilters.operator && booking.operatorId !== currentFilters.operator) {
+                        return false;
+                    }
+                    return true;
+                });
+
+                if (filteredDocs.length === 0) {
                     bookingsList.innerHTML = '<p>Nessuna prenotazione trovata</p>';
                     return;
                 }
 
-                snapshot.forEach(doc => {
+                filteredDocs.forEach(doc => {
                     const booking = { id: doc.id, ...doc.data() };
-                    
-                    // Filtra per companyId lato client
-                    if (booking.companyId && booking.companyId !== currentUser.uid) {
-                        return; // Salta prenotazioni di altre aziende
-                    }
-                    
-                    // Filtro operatore
-                    if (currentFilters.operator && booking.operatorId !== currentFilters.operator) {
-                        return;
-                    }
-                    
                     const bookingCard = createAdminBookingCard(booking);
                     bookingsList.appendChild(bookingCard);
                 });
             }, (error) => {
                 console.error('Errore nel listener prenotazioni:', error);
+                if (bookingsList) {
+                    bookingsList.innerHTML = '<p style="color: red;">Errore nel caricamento prenotazioni. Controlla la console per dettagli.</p>';
+                }
             });
     } catch (error) {
         console.error('Errore nel caricamento prenotazioni:', error);
@@ -1514,16 +1541,23 @@ function loadOperators() {
         if (!operatorsList) return;
         
         // Carica operatori (se esiste la collection)
+        // Filtriamo lato client per companyId per retrocompatibilità
         operatorsUnsubscribe = db.collection('operators')
             .onSnapshot((snapshot) => {
                 operatorsList.innerHTML = '';
                 
-                if (snapshot.empty) {
+                // Filtra lato client per companyId
+                const filtered = snapshot.docs.filter(doc => {
+                    const operator = doc.data();
+                    return !operator.companyId || operator.companyId === currentUser.uid;
+                });
+                
+                if (filtered.length === 0) {
                     operatorsList.innerHTML = '<p>Nessun operatore aggiunto. Clicca su "Aggiungi Operatore" per iniziare.</p>';
                     return;
                 }
                 
-                snapshot.forEach(doc => {
+                filtered.forEach(doc => {
                     const operator = { id: doc.id, ...doc.data() };
                     const operatorCard = createOperatorCard(operator);
                     operatorsList.appendChild(operatorCard);
@@ -1533,6 +1567,9 @@ function loadOperators() {
                 updateOperatorSelects();
             }, (error) => {
                 console.error('Errore nel caricamento operatori:', error);
+                if (operatorsList) {
+                    operatorsList.innerHTML = '<p style="color: red;">Errore nel caricamento operatori. Verifica le regole Firestore.</p>';
+                }
             });
     } catch (error) {
         console.error('Errore nel caricamento operatori:', error);
@@ -1558,6 +1595,7 @@ async function saveOperator() {
     if (!currentUser) return;
 
     const operatorData = {
+        companyId: currentUser.uid, // Associa operatore all'azienda
         name: document.getElementById('operatorName').value,
         email: document.getElementById('operatorEmail').value,
         phone: document.getElementById('operatorPhone').value,
@@ -3164,6 +3202,10 @@ async function createAdminBooking() {
             }
             
             alert('Prenotazione modificata con successo!');
+            
+            // Ricarica tutti i dati per mostrare le modifiche
+            loadAdminData();
+            loadAllBookings();
         } else {
             // Crea nuova prenotazione
             // Determina lo status: se la data è passata, imposta come "confirmed"
@@ -3175,14 +3217,30 @@ async function createAdminBooking() {
             const bookingRef = await db.collection('bookings').add(bookingData);
             console.log('Prenotazione creata con successo:', bookingRef.id, bookingData);
             
+            // Aggiorna selectedDate alla data della prenotazione creata
+            selectedDate = new Date(bookingDateTime);
+            const selectedDateInput = document.getElementById('selectedDate');
+            if (selectedDateInput) {
+                selectedDateInput.value = selectedDate.toISOString().split('T')[0];
+            }
+            
+            // Aggiorna il calendario alla data della prenotazione
+            if (adminCalendar) {
+                adminCalendar.gotoDate(selectedDate);
+            }
+            
             alert('Prenotazione creata con successo!');
         }
 
         form.reset();
         document.getElementById('addBookingModal').classList.remove('show');
         
-        // Non ricaricare manualmente - i listener Firestore si aggiorneranno automaticamente
-        // Questo evita loop infiniti e "Maximum call stack size exceeded"
+        // Ricarica tutti i dati per mostrare la nuova prenotazione
+        // Usa un piccolo delay per assicurarsi che Firestore abbia propagato i dati
+        setTimeout(() => {
+            loadAdminData();
+            loadAllBookings();
+        }, 500);
     } catch (error) {
         console.error('Errore nella creazione prenotazione:', error);
         alert('Errore nella creazione della prenotazione: ' + error.message);

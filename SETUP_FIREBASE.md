@@ -39,48 +39,56 @@ Questa guida ti aiuterà a configurare Firebase per CutCalendar passo dopo passo
 
 Dopo aver creato il database, vai alla tab **"Regole"** o **"Rules"** e sostituisci le regole con queste:
 
+**📋 Vedi il file `FIRESTORE_RULES.md` per le regole complete e dettagliate!**
+
+Regole essenziali:
+
 ```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // Regole per le aziende (companies)
     match /companies/{companyId} {
-      // Chiunque può leggere i dati pubblici dell'azienda
       allow read: if true;
-      // Solo l'azienda proprietaria può scrivere
       allow write: if request.auth != null && request.auth.uid == companyId;
     }
     
     // Regole per le prenotazioni (bookings)
     match /bookings/{bookingId} {
-      // Solo l'azienda proprietaria può leggere e scrivere
-      allow read, write: if request.auth != null && 
-        resource.data.companyId == request.auth.uid;
-      
       // Permetti la creazione di prenotazioni pubbliche (senza auth)
       allow create: if request.resource.data.companyId != null;
+      // Permetti la lettura solo all'azienda proprietaria
+      allow read: if request.auth != null && 
+        resource.data.companyId == request.auth.uid;
+      // Permetti la modifica/cancellazione solo all'azienda proprietaria
+      allow update, delete: if request.auth != null && 
+        resource.data.companyId == request.auth.uid;
     }
     
     // Regole per gli utenti (users)
     match /users/{userId} {
-      // Chiunque può leggere (per visualizzare profili clienti)
       allow read: if true;
-      // Solo l'utente stesso o l'azienda può scrivere
-      allow write: if request.auth != null && 
+      allow create: if true; // Per prenotazioni pubbliche
+      allow update: if request.auth != null && 
         (request.auth.uid == userId || 
+         resource.data.companyId == request.auth.uid ||
          request.resource.data.companyId == request.auth.uid);
     }
     
     // Regole per gli operatori (operators)
     match /operators/{operatorId} {
-      // Solo l'azienda proprietaria può leggere e scrivere
-      allow read, write: if request.auth != null && 
+      // Permetti la lettura agli utenti autenticati (filtriamo lato client per companyId)
+      allow read: if request.auth != null;
+      // Permetti la creazione se l'utente è autenticato e il companyId corrisponde
+      allow create: if request.auth != null && 
+        request.resource.data.companyId == request.auth.uid;
+      // Permetti la modifica/cancellazione solo all'azienda proprietaria
+      allow update, delete: if request.auth != null && 
         resource.data.companyId == request.auth.uid;
     }
     
     // Regole per gli abbonamenti (subscriptions)
     match /subscriptions/{subscriptionId} {
-      // Solo l'azienda proprietaria può leggere e scrivere
       allow read, write: if request.auth != null && 
         resource.data.companyId == request.auth.uid;
     }
@@ -88,7 +96,10 @@ service cloud.firestore {
 }
 ```
 
-**⚠️ IMPORTANTE**: Queste regole permettono la creazione di prenotazioni pubbliche senza autenticazione. Per maggiore sicurezza in produzione, considera di aggiungere validazioni aggiuntive.
+**⚠️ IMPORTANTE**: 
+- Copia le regole COMPLETE dal file `FIRESTORE_RULES.md`
+- Assicurati di cliccare **"Pubblica"** dopo aver incollato le regole
+- Le regole devono essere esattamente come mostrato sopra
 
 ## 📱 Passo 4: Aggiungi un'App Web
 
