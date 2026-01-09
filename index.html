@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CutCalendar - Gestione Prenotazioni per Parrucchieri ed Estetisti</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">CutCalendar</h1>
+            <div class="nav-links">
+                <button id="logoutBtn" class="btn btn-outline" style="display: none;">Esci</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container main-content">
+        <!-- Login Modal -->
+        <div id="loginModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Accedi alla Dashboard</h2>
+                <p style="color: var(--dark-color); margin-bottom: 1rem; font-size: 0.9rem;">
+                    Accesso riservato a parrucchieri ed estetisti
+                </p>
+                <form id="authForm">
+                    <input type="email" id="email" placeholder="Email professionale" required>
+                    <input type="password" id="password" placeholder="Password" required>
+                    <div style="text-align: right; margin-top: 0.5rem; margin-bottom: 1rem;">
+                        <a href="#" id="forgotPasswordLink" style="color: var(--primary-color); text-decoration: underline; cursor: pointer; font-size: 0.9rem;">Password dimenticata?</a>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Accedi</button>
+                    <p style="text-align: center; margin-top: 1rem; font-size: 0.9rem;">
+                        Non hai un account? <a href="#" id="switchToRegister" style="color: var(--primary-color); text-decoration: underline; cursor: pointer;">Registra il tuo Salone</a>
+                    </p>
+                </form>
+            </div>
+        </div>
+
+        <!-- Register Modal -->
+        <div id="registerModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Registra il tuo Salone</h2>
+                <p style="color: var(--dark-color); margin-bottom: 1rem; font-size: 0.9rem;">
+                    Crea un account per il tuo salone di bellezza
+                </p>
+                <form id="registerForm">
+                    <input type="email" id="registerEmail" placeholder="Email professionale" required>
+                    <input type="password" id="registerPassword" placeholder="Password (min. 6 caratteri)" required>
+                    <button type="submit" class="btn btn-primary">Registra</button>
+                    <p style="text-align: center; margin-top: 1rem; font-size: 0.9rem;">
+                        Hai già un account? <a href="#" id="switchToLogin" style="color: var(--primary-color); text-decoration: underline; cursor: pointer;">Accedi</a>
+                    </p>
+                </form>
+            </div>
+        </div>
+
+        <!-- Forgot Password Modal -->
+        <div id="forgotPasswordModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Recupera Password</h2>
+                <p style="color: var(--dark-color); margin-bottom: 1rem; font-size: 0.9rem;">
+                    Inserisci la tua email e ti invieremo un link per reimpostare la password.
+                </p>
+                <form id="forgotPasswordForm">
+                    <input type="email" id="forgotPasswordEmail" placeholder="Email professionale" required>
+                    <button type="submit" class="btn btn-primary">Invia Link di Recupero</button>
+                    <div id="forgotPasswordMessage" style="display: none; margin-top: 1rem; padding: 0.75rem; border-radius: 8px; font-size: 0.9rem;"></div>
+                    <p style="text-align: center; margin-top: 1rem; font-size: 0.9rem;">
+                        <a href="#" id="backToLogin" style="color: var(--primary-color); text-decoration: underline; cursor: pointer;">Torna al login</a>
+                    </p>
+                </form>
+            </div>
+        </div>
+
+        <!-- Hero Section -->
+        <div class="hero">
+            <h1>CutCalendar</h1>
+            <h2>La Piattaforma Completa per Gestire il Tuo Salone di Bellezza</h2>
+            <p>Prenotazioni, operatori, reportistica e molto altro. Tutto ciò di cui hai bisogno per far crescere la tua attività di parrucchiere o estetista.</p>
+            <div class="hero-actions">
+                <button id="heroLoginBtn" class="btn btn-primary btn-large">Accedi alla Dashboard</button>
+                <button id="heroRegisterBtn" class="btn btn-secondary btn-large">Registra il tuo Salone</button>
+            </div>
+        </div>
+
+        <!-- Features Section -->
+        <div class="features-section">
+            <h3>Funzionalità Professionali</h3>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">CAL</div>
+                    <h4>Calendario Avanzato</h4>
+                    <p>Gestisci tutte le prenotazioni con un calendario interattivo e intuitivo</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">TEAM</div>
+                    <h4>Gestione Operatori</h4>
+                    <p>Assegna operatori alle prenotazioni e gestisci il tuo team</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">RPT</div>
+                    <h4>Reportistica Avanzata</h4>
+                    <p>Analizza fatturato, servizi più richiesti e performance del business</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">FIL</div>
+                    <h4>Filtri Avanzati</h4>
+                    <p>Cerca e filtra prenotazioni per operatore, servizio, stato e periodo</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">DASH</div>
+                    <h4>Dashboard Completa</h4>
+                    <p>Visualizza statistiche in tempo reale e metriche chiave del business</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">EXP</div>
+                    <h4>Export Dati</h4>
+                    <p>Esporta prenotazioni in CSV per analisi e contabilità</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">LINK</div>
+                    <h4>Prenotazione Tramite Link</h4>
+                    <p>Condividi un link personalizzato con i clienti per prenotare online. Risparmia tempo e riduci le chiamate telefoniche</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pricing Section -->
+        <div class="pricing-section">
+            <h3>Piani e Prezzi</h3>
+            <div class="pricing-grid">
+                <div class="pricing-card">
+                    <h4>FREE</h4>
+                    <div class="pricing-price">€0<span>/mese</span></div>
+                    <p class="pricing-description">Perfetto per iniziare</p>
+                    <ul class="pricing-features">
+                        <li>Fino a 50 prenotazioni/mese</li>
+                        <li>Fino a 2 operatori</li>
+                        <li>1 sede</li>
+                        <li>Calendario base</li>
+                        <li>Link prenotazione online</li>
+                        <li>Notifiche email</li>
+                    </ul>
+                    <button class="btn btn-outline btn-large">Inizia Gratis</button>
+                </div>
+                <div class="pricing-card pricing-featured">
+                    <div class="pricing-badge">Più Popolare</div>
+                    <h4>PRO</h4>
+                    <div class="pricing-price">€19,99<span>/mese</span></div>
+                    <p class="pricing-description">Per saloni in crescita</p>
+                    <ul class="pricing-features">
+                        <li>Prenotazioni illimitate</li>
+                        <li>Fino a 5 operatori</li>
+                        <li>Fino a 3 sedi</li>
+                        <li>Reportistica avanzata</li>
+                        <li>Link prenotazione online</li>
+                        <li>Integrazione pagamenti</li>
+                        <li>SMS automatici</li>
+                        <li>Export dati</li>
+                    </ul>
+                    <button class="btn btn-primary btn-large" data-plan="monthly" data-price="19.99">Scegli PRO Mensile</button>
+                </div>
+                <div class="pricing-card">
+                    <h4>PRO ANNUALE</h4>
+                    <div class="pricing-price">€119,99<span>/anno</span></div>
+                    <p class="pricing-description">Risparmia con l'abbonamento annuale</p>
+                    <ul class="pricing-features">
+                        <li>Prenotazioni illimitate</li>
+                        <li>Fino a 5 operatori</li>
+                        <li>Fino a 3 sedi</li>
+                        <li>Reportistica avanzata</li>
+                        <li>Link prenotazione online</li>
+                        <li>Integrazione pagamenti</li>
+                        <li>SMS automatici</li>
+                        <li>Export dati</li>
+                        <li><strong>Risparmio di €120 all'anno</strong></li>
+                    </ul>
+                    <button class="btn btn-primary btn-large" data-plan="yearly" data-price="119.99">Scegli PRO Annuale</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- About Section -->
+        <div class="about-section">
+            <h3>Perché Scegliere CutCalendar?</h3>
+            <div class="about-grid">
+                <div class="about-item">
+                    <h4>Facilità d'Uso</h4>
+                    <p>Interfaccia intuitiva e moderna. Inizia a usare la piattaforma in pochi minuti, senza bisogno di formazione complessa.</p>
+                </div>
+                <div class="about-item">
+                    <h4>Risparmio Tempo</h4>
+                    <p>Automatizza prenotazioni, promemoria e notifiche. I clienti possono prenotare direttamente tramite link, riducendo chiamate e risparmiando tempo prezioso. Concentrati sul tuo lavoro, lasciamo che il software gestisca il resto.</p>
+                </div>
+                <div class="about-item">
+                    <h4>Dati e Reportistica</h4>
+                    <p>Analizza le performance del tuo business con report dettagliati su fatturato, servizi più richiesti e clienti.</p>
+                </div>
+                <div class="about-item">
+                    <h4>Scalabilità</h4>
+                    <p>Dal piccolo salone al grande centro. CutCalendar cresce con te, supportando da 1 a centinaia di operatori.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info Section -->
+        <div class="info-section">
+            <h3>Piattaforma Dedicata ai Professionisti</h3>
+            <p>CutCalendar è una soluzione B2B progettata esclusivamente per saloni di bellezza, parrucchieri ed estetisti professionisti. 
+               Non è una piattaforma per clienti finali: tutte le prenotazioni vengono gestite direttamente dalla tua dashboard professionale.</p>
+            <div class="info-box">
+                <p><strong>Accesso Riservato:</strong> Solo i saloni registrati possono accedere alla dashboard. Registra il tuo salone per iniziare.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script src="payment.js"></script>
+    <script>
+        // Variabili globali
+        let currentUser = null;
+
+        // Inizializzazione - aspetta che Firebase sia caricato
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM caricato, inizializzazione...');
+            
+            // Verifica che Firebase sia inizializzato
+            if (typeof firebase === 'undefined' || !firebase.auth) {
+                console.error('Firebase non è stato caricato correttamente');
+                alert('Errore: Firebase non è stato caricato. Verifica la connessione internet e ricarica la pagina.');
+                return;
+            }
+
+            console.log('Firebase caricato correttamente');
+            
+            // Verifica che auth sia disponibile
+            if (typeof auth === 'undefined') {
+                console.error('auth non è definito. Verifica che firebase-config.js sia caricato correttamente.');
+                alert('Errore: autenticazione Firebase non disponibile. Verifica che firebase-config.js sia presente e ricarica la pagina.');
+                return;
+            }
+
+            console.log('Auth disponibile, inizializzazione componenti...');
+            initAuth();
+            initEventListeners();
+            
+            // Verifica se l'utente è già autenticato
+            console.log('Impostazione listener stato autenticazione...');
+            auth.onAuthStateChanged(async (user) => {
+                console.log('Stato autenticazione cambiato:', user ? 'utente loggato' : 'utente non loggato');
+                
+                if (user) {
+                    try {
+                        await user.reload();
+                        console.log('Utente ricaricato, email verificata:', user.emailVerified);
+                        
+                        // Verifica che l'email sia stata verificata
+                        if (!user.emailVerified) {
+                            console.warn('Email non verificata, disconnessione utente');
+                            await auth.signOut();
+                            currentUser = null;
+                            updateUIForLoggedOut();
+                            alert('Per favore, verifica la tua email prima di accedere. Controlla la tua casella di posta e clicca sul link di verifica.');
+                            return;
+                        }
+                        
+                        currentUser = user;
+                        updateUIForLoggedIn();
+                        
+                        // Reindirizza alla dashboard se già loggato
+                        console.log('Reindirizzamento a admin.html...');
+                        window.location.href = 'admin.html';
+                    } catch (error) {
+                        console.error('Errore nel controllo stato autenticazione:', error);
+                        updateUIForLoggedOut();
+                    }
+                } else {
+                    currentUser = null;
+                    updateUIForLoggedOut();
+                }
+            });
+        });
+
+        function updateUIForLoggedIn() {
+            const logoutBtn = document.getElementById('logoutBtn');
+            
+            if (logoutBtn) logoutBtn.style.display = 'block';
+        }
+
+        function updateUIForLoggedOut() {
+            const logoutBtn = document.getElementById('logoutBtn');
+            
+            if (logoutBtn) logoutBtn.style.display = 'none';
+        }
+
+        // Autenticazione
+        function initAuth() {
+            // Verifica che auth sia disponibile
+            if (typeof auth === 'undefined') {
+                console.error('auth non è disponibile');
+                return;
+            }
+
+            const loginModal = document.getElementById('loginModal');
+            const registerModal = document.getElementById('registerModal');
+            const forgotPasswordModal = document.getElementById('forgotPasswordModal');
+            const logoutBtn = document.getElementById('logoutBtn');
+            const authForm = document.getElementById('authForm');
+            const registerForm = document.getElementById('registerForm');
+            const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+
+            if (!loginModal || !registerModal || !forgotPasswordModal || !authForm || !registerForm || !forgotPasswordForm) {
+                console.error('Elementi DOM non trovati');
+                return;
+            }
+
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', async () => {
+                    try {
+                        await auth.signOut();
+                        window.location.reload();
+                    } catch (error) {
+                        console.error('Errore durante il logout:', error);
+                        alert('Errore durante il logout: ' + error.message);
+                    }
+                });
+            }
+
+            authForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+
+                if (!email || !password) {
+                    alert('Inserisci email e password');
+                    return;
+                }
+
+                try {
+                    const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                    const user = userCredential.user;
+                    
+                    await user.reload();
+                    
+                    // Verifica se l'email è stata verificata
+                    if (!user.emailVerified) {
+                        // Disconnetti l'utente se l'email non è verificata
+                        await auth.signOut();
+                        
+                        const resend = confirm('La tua email non è stata ancora verificata. Devi verificare l\'email prima di accedere. Vuoi ricevere nuovamente l\'email di verifica?');
+                        if (resend) {
+                            try {
+                                await user.sendEmailVerification();
+                                alert('Email di verifica inviata! Controlla la tua casella di posta e clicca sul link di verifica prima di accedere nuovamente.');
+                            } catch (verificationError) {
+                                console.error('Errore nell\'invio email di verifica:', verificationError);
+                                alert('Errore nell\'invio dell\'email di verifica: ' + verificationError.message);
+                            }
+                        } else {
+                            alert('Per favore, verifica la tua email prima di accedere. Controlla la tua casella di posta.');
+                        }
+                        loginModal.classList.remove('show');
+                        authForm.reset();
+                        return;
+                    }
+                    
+                    loginModal.classList.remove('show');
+                    authForm.reset();
+                    // Reindirizza alla dashboard
+                    window.location.href = 'admin.html';
+                } catch (error) {
+                    console.error('Errore durante il login:', error);
+                    let errorMessage = 'Errore durante il login';
+                    
+                    if (error.code === 'auth/user-not-found') {
+                        errorMessage = 'Utente non trovato. Verifica l\'email o registrati.';
+                    } else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+                        errorMessage = 'Email o password non corretti. Controlla le credenziali e riprova.';
+                    } else if (error.code === 'auth/invalid-email') {
+                        errorMessage = 'Email non valida.';
+                    } else if (error.code === 'auth/too-many-requests') {
+                        errorMessage = 'Troppi tentativi di accesso falliti. Riprova più tardi o recupera la password.';
+                    } else if (error.message) {
+                        // Rimuove il prefisso tecnico di Firebase se presente
+                        errorMessage = error.message.replace(/^Firebase:\s*/i, '').replace(/\s*\(auth\/[^)]+\)\.?$/i, '');
+                        // Se il messaggio è ancora troppo tecnico, usa un messaggio generico
+                        if (errorMessage.includes('auth/') || errorMessage.includes('credential')) {
+                            errorMessage = 'Email o password non corretti. Controlla le credenziali e riprova.';
+                        }
+                    }
+                    
+                    alert(errorMessage);
+                }
+            });
+
+            // Form reset password
+            forgotPasswordForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('forgotPasswordEmail').value;
+                const messageDiv = document.getElementById('forgotPasswordMessage');
+
+                if (!email) {
+                    messageDiv.textContent = 'Inserisci la tua email.';
+                    messageDiv.style.display = 'block';
+                    messageDiv.style.background = '#fee';
+                    messageDiv.style.color = '#c33';
+                    messageDiv.style.borderLeft = '4px solid var(--danger-color)';
+                    return;
+                }
+
+                try {
+                    await auth.sendPasswordResetEmail(email);
+                    messageDiv.textContent = 'Email di recupero password inviata! Controlla la tua casella di posta e segui le istruzioni per reimpostare la password.';
+                    messageDiv.style.display = 'block';
+                    messageDiv.style.background = '#d1fae5';
+                    messageDiv.style.color = '#065f46';
+                    messageDiv.style.borderLeft = '4px solid var(--success-color)';
+                    forgotPasswordForm.reset();
+                } catch (error) {
+                    console.error('Errore durante l\'invio email di reset:', error);
+                    let errorMessage = 'Errore nell\'invio dell\'email di recupero.';
+                    
+                    if (error.code === 'auth/user-not-found') {
+                        errorMessage = 'Nessun account trovato con questa email. Verifica l\'indirizzo email.';
+                    } else if (error.code === 'auth/invalid-email') {
+                        errorMessage = 'Email non valida.';
+                    } else if (error.code === 'auth/too-many-requests') {
+                        errorMessage = 'Troppi tentativi. Riprova più tardi.';
+                    }
+                    
+                    messageDiv.textContent = errorMessage;
+                    messageDiv.style.display = 'block';
+                    messageDiv.style.background = '#fee';
+                    messageDiv.style.color = '#c33';
+                    messageDiv.style.borderLeft = '4px solid var(--danger-color)';
+                }
+            });
+
+            // Form di registrazione
+            registerForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('registerEmail').value;
+                const password = document.getElementById('registerPassword').value;
+
+                if (!email || !password) {
+                    alert('Inserisci email e password');
+                    return;
+                }
+
+                if (password.length < 6) {
+                    alert('La password deve essere di almeno 6 caratteri');
+                    return;
+                }
+
+                try {
+                    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                    const user = userCredential.user;
+                    
+                    // Invia email di verifica
+                    try {
+                        await user.sendEmailVerification();
+                        alert('Registrazione completata! Controlla la tua email per verificare l\'account. Dovrai effettuare il login dopo aver verificato l\'email.');
+                    } catch (verificationError) {
+                        console.warn('Errore nell\'invio email di verifica:', verificationError);
+                        alert('Registrazione completata, ma non è stato possibile inviare l\'email di verifica. Puoi richiederla più tardi dalle impostazioni.');
+                    }
+                    
+                    // Disconnetti l'utente se l'email non è verificata
+                    if (!user.emailVerified) {
+                        await auth.signOut();
+                    }
+                    
+                    registerModal.classList.remove('show');
+                    registerForm.reset();
+                } catch (error) {
+                    console.error('Errore durante la registrazione:', error);
+                    let errorMessage = 'Errore durante la registrazione';
+                    
+                    if (error.code === 'auth/email-already-in-use') {
+                        errorMessage = 'Questa email è già registrata. Prova ad accedere.';
+                    } else if (error.code === 'auth/invalid-email') {
+                        errorMessage = 'Email non valida.';
+                    } else if (error.code === 'auth/weak-password') {
+                        errorMessage = 'Password troppo debole. Usa almeno 6 caratteri.';
+                    } else if (error.message) {
+                        errorMessage = error.message;
+                    }
+                    
+                    alert(errorMessage);
+                }
+            });
+        }
+
+        // Event Listeners
+        function initEventListeners() {
+            // Modali
+            const modals = document.querySelectorAll('.modal');
+            const closeBtns = document.querySelectorAll('.close');
+
+            closeBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const modal = btn.closest('.modal');
+                    modal.classList.remove('show');
+                    // Reset del form password dimenticata se chiuso
+                    if (modal.id === 'forgotPasswordModal') {
+                        const messageDiv = document.getElementById('forgotPasswordMessage');
+                        if (messageDiv) {
+                            messageDiv.style.display = 'none';
+                        }
+                        forgotPasswordForm.reset();
+                    }
+                });
+            });
+
+            modals.forEach(modal => {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.classList.remove('show');
+                        // Reset del form password dimenticata se chiuso
+                        if (modal.id === 'forgotPasswordModal') {
+                            const messageDiv = document.getElementById('forgotPasswordMessage');
+                            if (messageDiv) {
+                                messageDiv.style.display = 'none';
+                            }
+                            forgotPasswordForm.reset();
+                        }
+                    }
+                });
+            });
+
+            // Hero buttons
+            const heroLoginBtn = document.getElementById('heroLoginBtn');
+            const heroRegisterBtn = document.getElementById('heroRegisterBtn');
+            
+            if (heroLoginBtn) {
+                heroLoginBtn.addEventListener('click', () => {
+                    const loginModal = document.getElementById('loginModal');
+                    if (loginModal) {
+                        loginModal.classList.add('show');
+                    }
+                });
+            }
+
+            if (heroRegisterBtn) {
+                heroRegisterBtn.addEventListener('click', () => {
+                    const registerModal = document.getElementById('registerModal');
+                    if (registerModal) {
+                        registerModal.classList.add('show');
+                        // Focus sul form
+                        setTimeout(() => {
+                            const emailInput = document.getElementById('registerEmail');
+                            if (emailInput) {
+                                emailInput.focus();
+                            }
+                        }, 300);
+                    }
+                });
+            }
+
+            // Link password dimenticata
+            const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+            if (forgotPasswordLink) {
+                forgotPasswordLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const email = document.getElementById('email').value;
+                    loginModal.classList.remove('show');
+                    forgotPasswordModal.classList.add('show');
+                    // Pre-compila l'email se già inserita nel form di login
+                    if (email) {
+                        document.getElementById('forgotPasswordEmail').value = email;
+                    }
+                    setTimeout(() => {
+                        const emailInput = document.getElementById('forgotPasswordEmail');
+                        if (emailInput) {
+                            emailInput.focus();
+                        }
+                    }, 300);
+                });
+            }
+
+            // Torna al login dal modal password dimenticata
+            const backToLogin = document.getElementById('backToLogin');
+            if (backToLogin) {
+                backToLogin.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    forgotPasswordModal.classList.remove('show');
+                    loginModal.classList.add('show');
+                    // Reset del messaggio
+                    const messageDiv = document.getElementById('forgotPasswordMessage');
+                    if (messageDiv) {
+                        messageDiv.style.display = 'none';
+                    }
+                    forgotPasswordForm.reset();
+                });
+            }
+
+            // Switch tra login e registrazione
+            const switchToRegister = document.getElementById('switchToRegister');
+            const switchToLogin = document.getElementById('switchToLogin');
+            
+            if (switchToRegister) {
+                switchToRegister.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const loginModal = document.getElementById('loginModal');
+                    const registerModal = document.getElementById('registerModal');
+                    if (loginModal && registerModal) {
+                        loginModal.classList.remove('show');
+                        registerModal.classList.add('show');
+                        setTimeout(() => {
+                            const emailInput = document.getElementById('registerEmail');
+                            if (emailInput) {
+                                emailInput.focus();
+                            }
+                        }, 300);
+                    }
+                });
+            }
+
+            if (switchToLogin) {
+                switchToLogin.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const loginModal = document.getElementById('loginModal');
+                    const registerModal = document.getElementById('registerModal');
+                    if (loginModal && registerModal) {
+                        registerModal.classList.remove('show');
+                        loginModal.classList.add('show');
+                        setTimeout(() => {
+                            const emailInput = document.getElementById('email');
+                            if (emailInput) {
+                                emailInput.focus();
+                            }
+                        }, 300);
+                    }
+                });
+            }
+
+            // Event listeners per pulsanti abbonamento
+            const subscriptionButtons = document.querySelectorAll('[data-plan]');
+            subscriptionButtons.forEach(button => {
+                button.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    const plan = button.getAttribute('data-plan');
+                    const price = button.getAttribute('data-price');
+                    
+                    // Verifica se l'utente è autenticato
+                    if (!currentUser) {
+                        alert('Devi effettuare il login per sottoscrivere un abbonamento');
+                        const loginModal = document.getElementById('loginModal');
+                        if (loginModal) {
+                            loginModal.classList.add('show');
+                        }
+                        return;
+                    }
+                    
+                    // Avvia il processo di checkout Stripe
+                    try {
+                        await handleSubscriptionCheckout(plan, price);
+                    } catch (error) {
+                        console.error('Errore nel checkout:', error);
+                        alert('Errore durante l\'avvio del pagamento. Riprova più tardi.');
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+</html>
+

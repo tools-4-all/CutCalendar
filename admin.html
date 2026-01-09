@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CutCalendar - Dashboard Professionale</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/main.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/main.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/locales/it.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://js.stripe.com/v3/"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <nav class="navbar navbar-dashboard">
+        <div class="container">
+            <h1 class="logo">CutCalendar</h1>
+            <div class="dashboard-menu">
+                <div class="menu-dropdown">
+                    <button id="menuToggleBtn" class="menu-toggle">
+                        <span class="menu-icon"></span>
+                        <span class="menu-icon"></span>
+                        <span class="menu-icon"></span>
+                    </button>
+                    <div id="menuDropdown" class="menu-dropdown-content">
+                        <a href="#" id="menuSettings" class="menu-item">
+                            <span>Impostazioni</span>
+                        </a>
+                        <button id="logoutBtn" class="menu-item menu-item-button">
+                            <span>Esci</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container main-content">
+        <!-- Dashboard Header -->
+        <div class="admin-header">
+            <h2>Dashboard Professionale</h2>
+            <div class="header-actions">
+                <div class="date-selector">
+                    <input type="date" id="selectedDate" value="">
+                    <button id="todayBtn" class="btn btn-secondary">Oggi</button>
+                </div>
+                <button id="exportDataBtn" class="btn btn-outline">Esporta Dati</button>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="admin-tabs">
+            <button class="tab-btn active" data-tab="dashboard">
+                <span class="tab-icon">Dashboard</span>
+            </button>
+            <button class="tab-btn" data-tab="calendar">
+                <span class="tab-icon">Calendario</span>
+            </button>
+            <button class="tab-btn" data-tab="bookings">
+                <span class="tab-icon">Prenotazioni</span>
+            </button>
+            <button class="tab-btn" data-tab="operators">
+                <span class="tab-icon">Operatori</span>
+            </button>
+            <button class="tab-btn" data-tab="reports">
+                <span class="tab-icon">Report</span>
+            </button>
+            <button class="tab-btn" data-tab="settings">
+                <span class="tab-icon">Impostazioni</span>
+            </button>
+        </div>
+
+        <!-- Dashboard Tab -->
+        <div id="dashboardTab" class="tab-content active">
+            <div class="admin-stats">
+                <div class="stat-card">
+                    <h3 id="todayBookings">0</h3>
+                    <p>Prenotazioni Oggi</p>
+                </div>
+                <div class="stat-card">
+                    <h3 id="pendingBookings">0</h3>
+                    <p>In Attesa</p>
+                </div>
+                <div class="stat-card">
+                    <h3 id="completedBookings">0</h3>
+                    <p>Completate</p>
+                </div>
+                <div class="stat-card">
+                    <h3 id="monthlyRevenue">€0</h3>
+                    <p>Fatturato Mensile</p>
+                </div>
+                <div class="stat-card">
+                    <h3 id="totalClients">0</h3>
+                    <p>Clienti Totali</p>
+                </div>
+                <div class="stat-card">
+                    <h3 id="avgRating">-</h3>
+                    <p>Valutazione Media</p>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="dashboard-card">
+                    <h3>Servizi Più Richiesti</h3>
+                    <div id="popularServices"></div>
+                </div>
+                <div class="dashboard-card">
+                    <h3>Clienti Più Frequenti</h3>
+                    <div id="topClients"></div>
+                </div>
+                <div class="dashboard-card">
+                    <h3>Prenotazioni Prossimi 7 Giorni</h3>
+                    <div id="upcomingBookings"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Calendar Tab -->
+        <div id="calendarTab" class="tab-content">
+            <div class="calendar-filters">
+                <select id="filterOperator" class="filter-select">
+                    <option value="">Tutti gli operatori</option>
+                </select>
+                <select id="filterService" class="filter-select">
+                    <option value="">Tutti i servizi</option>
+                    <option value="taglio-capelli">Taglio Capelli</option>
+                    <option value="piega">Piega</option>
+                    <option value="colore">Colore</option>
+                    <option value="meches">Meches</option>
+                    <option value="taglio-e-piega">Taglio e Piega</option>
+                    <option value="trattamento-viso">Trattamento Viso</option>
+                    <option value="manicure">Manicure</option>
+                    <option value="pedicure">Pedicure</option>
+                    <option value="massaggio">Massaggio</option>
+                    <option value="ceretta">Ceretta</option>
+                </select>
+                <select id="filterStatus" class="filter-select">
+                    <option value="">Tutti gli stati</option>
+                    <option value="pending">In Attesa</option>
+                    <option value="confirmed">Confermate</option>
+                    <option value="completed">Completate</option>
+                    <option value="cancelled">Annullate</option>
+                </select>
+                <button id="clearFiltersBtn" class="btn btn-secondary">Pulisci Filtri</button>
+            </div>
+            <div class="calendar-container">
+                <div id="adminCalendar"></div>
+            </div>
+        </div>
+
+        <!-- Bookings Tab -->
+        <div id="bookingsTab" class="tab-content">
+            <div class="bookings-header">
+                <h3>Prenotazioni</h3>
+                <button id="addBookingBtn" class="btn btn-primary">+ Nuova Prenotazione</button>
+            </div>
+            <div class="bookings-filters">
+                <input type="date" id="filterStartDate" class="filter-input" placeholder="Data inizio">
+                <input type="date" id="filterEndDate" class="filter-input" placeholder="Data fine">
+                <select id="filterBookingOperator" class="filter-select">
+                    <option value="">Tutti gli operatori</option>
+                </select>
+                <select id="filterBookingService" class="filter-select">
+                    <option value="">Tutti i servizi</option>
+                    <option value="taglio-capelli">Taglio Capelli</option>
+                    <option value="piega">Piega</option>
+                    <option value="colore">Colore</option>
+                    <option value="meches">Meches</option>
+                    <option value="taglio-e-piega">Taglio e Piega</option>
+                    <option value="trattamento-viso">Trattamento Viso</option>
+                    <option value="manicure">Manicure</option>
+                    <option value="pedicure">Pedicure</option>
+                    <option value="massaggio">Massaggio</option>
+                    <option value="ceretta">Ceretta</option>
+                </select>
+                <button id="applyFiltersBtn" class="btn btn-secondary">Applica Filtri</button>
+            </div>
+            <div class="bookings-list">
+                <div id="adminBookingsList"></div>
+            </div>
+        </div>
+
+        <!-- Operators Tab -->
+        <div id="operatorsTab" class="tab-content">
+            <div class="operators-header">
+                <h3>Gestione Operatori</h3>
+                <button id="addOperatorBtn" class="btn btn-primary">+ Aggiungi Operatore</button>
+            </div>
+            <div id="operatorsList" class="operators-list"></div>
+        </div>
+
+        <!-- Reports Tab -->
+        <div id="reportsTab" class="tab-content">
+            <div class="reports-header">
+                <h3>Reportistica Avanzata</h3>
+                <div class="report-period">
+                    <select id="reportPeriod" class="filter-select">
+                        <option value="week">Ultima Settimana</option>
+                        <option value="month" selected>Ultimo Mese</option>
+                        <option value="quarter">Ultimo Trimestre</option>
+                        <option value="year">Ultimo Anno</option>
+                        <option value="custom">Personalizzato</option>
+                    </select>
+                    <div id="customPeriod" style="display: none;">
+                        <input type="date" id="reportStartDate" class="filter-input">
+                        <input type="date" id="reportEndDate" class="filter-input">
+                    </div>
+                    <button id="generateReportBtn" class="btn btn-primary">Genera Report</button>
+                </div>
+            </div>
+
+            <!-- Advanced Analytics Content -->
+            <div id="advancedAnalyticsContent" class="analytics-content active">
+                <div class="analytics-filters">
+                    <select id="analyticsPeriod" class="filter-select">
+                        <option value="7">Ultimi 7 giorni</option>
+                        <option value="30" selected>Ultimi 30 giorni</option>
+                        <option value="90">Ultimi 90 giorni</option>
+                        <option value="180">Ultimi 6 mesi</option>
+                        <option value="365">Ultimo anno</option>
+                        <option value="custom">Personalizzato</option>
+                    </select>
+                    <div id="analyticsCustomPeriod" style="display: none; gap: 0.5rem; align-items: center;">
+                        <input type="date" id="analyticsStartDate" class="filter-input">
+                        <span>a</span>
+                        <input type="date" id="analyticsEndDate" class="filter-input">
+                    </div>
+                </div>
+
+                <!-- Revenue Trend Chart -->
+                <div class="analytics-section">
+                    <h4>Trend Fatturato</h4>
+                    <div class="chart-container">
+                        <canvas id="revenueTrendChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Service Performance Chart -->
+                <div class="analytics-section">
+                    <h4>Performance Servizi</h4>
+                    <div class="chart-container">
+                        <canvas id="servicePerformanceChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Hourly Heatmap -->
+                <div class="analytics-section">
+                    <h4>Heatmap Orari - Giorni della Settimana</h4>
+                    <div class="heatmap-container">
+                        <canvas id="hourlyHeatmapChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Seasonality Analysis -->
+                <div class="analytics-section">
+                    <h4>Analisi Stagionalità</h4>
+                    <div class="chart-container">
+                        <canvas id="seasonalityChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Predictions -->
+                <div class="analytics-section">
+                    <h4>Previsioni Prenotazioni</h4>
+                    <div class="predictions-container">
+                        <div class="prediction-card">
+                            <h5>Prossimi 7 giorni</h5>
+                            <div class="prediction-value" id="prediction7days">-</div>
+                            <p class="prediction-label">prenotazioni previste</p>
+                        </div>
+                        <div class="prediction-card">
+                            <h5>Prossimi 30 giorni</h5>
+                            <div class="prediction-value" id="prediction30days">-</div>
+                            <p class="prediction-label">prenotazioni previste</p>
+                        </div>
+                        <div class="prediction-card">
+                            <h5>Fatturato Previsto (30gg)</h5>
+                            <div class="prediction-value" id="predictionRevenue">-</div>
+                            <p class="prediction-label">fatturato stimato</p>
+                        </div>
+                    </div>
+                    <div class="chart-container" style="margin-top: 2rem;">
+                        <canvas id="predictionsChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Key Metrics -->
+                <div class="analytics-section">
+                    <h4>Metriche Chiave</h4>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <h5>Fatturato Medio Giornaliero</h5>
+                            <div class="metric-value" id="avgDailyRevenue">€0.00</div>
+                            <div class="metric-change" id="avgDailyRevenueChange">-</div>
+                        </div>
+                        <div class="metric-card">
+                            <h5>Prenotazioni Medie Giornaliere</h5>
+                            <div class="metric-value" id="avgDailyBookings">0</div>
+                            <div class="metric-change" id="avgDailyBookingsChange">-</div>
+                        </div>
+                        <div class="metric-card">
+                            <h5>Ticket Medio</h5>
+                            <div class="metric-value" id="avgTicket">€0.00</div>
+                            <div class="metric-change" id="avgTicketChange">-</div>
+                        </div>
+                        <div class="metric-card">
+                            <h5>Tasso di Completamento</h5>
+                            <div class="metric-value" id="completionRate">0%</div>
+                            <div class="metric-change" id="completionRateChange">-</div>
+                        </div>
+                        <div class="metric-card">
+                            <h5>Giorno Più Affollato</h5>
+                            <div class="metric-value" id="busiestDay">-</div>
+                            <div class="metric-change" id="busiestDayChange">-</div>
+                        </div>
+                        <div class="metric-card">
+                            <h5>Ora di Picco</h5>
+                            <div class="metric-value" id="peakHour">-</div>
+                            <div class="metric-change" id="peakHourChange">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="settingsTab" class="tab-content">
+            <div class="settings-container">
+                <!-- Subscription Section -->
+                <div class="settings-section">
+                    <h3>Abbonamento</h3>
+                    <div class="subscription-card">
+                        <div class="subscription-info">
+                            <div class="subscription-plan">
+                                <h4 id="currentPlanName">Piano FREE</h4>
+                                <p id="currentPlanDetails">Fino a 50 prenotazioni/mese - 2 operatori</p>
+                            </div>
+                            <div class="subscription-status">
+                                <span id="subscriptionStatus" class="status-badge status-active">Attivo</span>
+                                <p id="subscriptionExpiry">Scadenza: -</p>
+                            </div>
+                        </div>
+                        <div class="subscription-actions">
+                            <button id="upgradePlanBtn" class="btn btn-primary">Aggiorna Piano</button>
+                            <button id="manageBillingBtn" class="btn btn-outline">Gestisci Fatturazione</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Available Plans -->
+                    <div class="plans-grid">
+                        <div class="plan-card">
+                            <h4>FREE</h4>
+                            <div class="plan-price">€0<span>/mese</span></div>
+                            <ul class="plan-features">
+                                <li>Fino a 50 prenotazioni/mese</li>
+                                <li>Fino a 2 operatori</li>
+                                <li>1 sede</li>
+                                <li>Calendario base</li>
+                                <li>Notifiche email base</li>
+                            </ul>
+                            <button class="btn btn-outline plan-btn" data-plan="free">Piano Attuale</button>
+                        </div>
+                        <div class="plan-card plan-featured">
+                            <div class="plan-badge">Consigliato</div>
+                            <h4>PRO</h4>
+                            <div class="plan-price">€19,99<span>/mese</span></div>
+                            <ul class="plan-features">
+                                <li>Prenotazioni illimitate</li>
+                                <li>Fino a 5 operatori</li>
+                                <li>Fino a 3 sedi</li>
+                                <li>Reportistica avanzata</li>
+                                <li>Integrazione pagamenti</li>
+                                <li>SMS automatici</li>
+                                <li>Export dati</li>
+                            </ul>
+                            <button class="btn btn-primary plan-btn" data-plan="monthly" data-price="19.99">Abbonati Mensile</button>
+                        </div>
+                        <div class="plan-card">
+                            <div class="plan-badge">Risparmio</div>
+                            <h4>PRO ANNUALE</h4>
+                            <div class="plan-price">€119,99<span>/anno</span></div>
+                            <ul class="plan-features">
+                                <li>Prenotazioni illimitate</li>
+                                <li>Fino a 5 operatori</li>
+                                <li>Fino a 3 sedi</li>
+                                <li>Reportistica avanzata</li>
+                                <li>Integrazione pagamenti</li>
+                                <li>SMS automatici</li>
+                                <li>Export dati</li>
+                                <li><strong>Risparmio di €120 all'anno</strong></li>
+                            </ul>
+                            <button class="btn btn-primary plan-btn" data-plan="yearly" data-price="119.99">Abbonati Annuale</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Booking Link Section -->
+                <div class="settings-section">
+                    <h3>Link Prenotazione Pubblica</h3>
+                    <div class="booking-link-card">
+                        <p style="margin-bottom: 1rem; color: var(--dark-color);">
+                            Condividi questo link con i tuoi clienti per permettere loro di prenotare direttamente online senza registrazione.
+                        </p>
+                        <div class="booking-link-container">
+                            <div class="form-group">
+                                <label>Il tuo link di prenotazione:</label>
+                                <div class="link-input-group">
+                                    <input type="text" id="bookingLink" readonly class="link-input" placeholder="Il link verrà generato automaticamente..." style="font-family: monospace; font-size: 0.9rem;">
+                                    <button id="copyLinkBtn" class="btn btn-primary">Copia Link</button>
+                                </div>
+                                <div style="margin-top: 0.5rem;">
+                                    <small id="linkStatus" style="color: #666; font-style: italic;">In attesa di generazione link...</small>
+                                </div>
+                                <small style="color: #666; margin-top: 0.5rem; display: block;">
+                                    I clienti che useranno questo link potranno prenotare direttamente. Le prenotazioni appariranno come "pending" e dovranno essere confermate da te.
+                                </small>
+                            </div>
+                            <div class="link-actions" style="display: flex; gap: 0.5rem; margin-top: 1.5rem; flex-wrap: wrap;">
+                                <button id="shareLinkBtn" class="btn btn-outline" style="background: #f3f4f6; color: #1f2937; border: 2px solid #d1d5db; font-weight: 600;">Condividi</button>
+                                <button id="whatsappShareBtn" class="btn" style="background: #25D366; color: white; border: 2px solid #25D366; font-weight: 600;">
+                                    📱 WhatsApp
+                                </button>
+                            </div>
+                            
+                            <!-- QR Code Section -->
+                            <div id="qrCodeSection" style="margin-top: 2rem; padding: 1.5rem; background: #f9fafb; border-radius: 8px; text-align: center; display: none;">
+                                <h4 style="margin-top: 0; margin-bottom: 1rem;">QR Code per Prenotazioni</h4>
+                                <div id="qrCodeContainer" style="margin: 1rem 0;">
+                                    <!-- QR Code verrà generato qui -->
+                                </div>
+                                <p style="font-size: 0.9rem; color: #666; margin: 1rem 0;">
+                                    Stampa questo QR code e mettilo in negozio, sui biglietti da visita o sui volantini.<br>
+                                    I clienti potranno scansionarlo per prenotare direttamente!
+                                </p>
+                                <button id="downloadQRBtn" class="btn btn-secondary" style="display: none;">Scarica QR Code</button>
+                            </div>
+                            
+                            <!-- Suggerimenti per aumentare prenotazioni -->
+                            <div style="margin-top: 2rem; padding: 1.5rem; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196F3;">
+                                <h4 style="margin-top: 0; color: #1976d2;">💡 Come Aumentare le Prenotazioni Online</h4>
+                                <ul style="margin: 1rem 0; padding-left: 1.5rem; color: #1565c0;">
+                                    <li><strong>Condividi il link su WhatsApp</strong> - Invia il link ai tuoi clienti esistenti</li>
+                                    <li><strong>Stampa il QR Code</strong> - Mettilo in negozio, sui biglietti da visita, volantini</li>
+                                    <li><strong>Pubblica sui social</strong> - Condividi il link su Facebook, Instagram</li>
+                                    <li><strong>Invia via email</strong> - Aggiungi il link nella firma email o in newsletter</li>
+                                    <li><strong>Offerta speciale</strong> - "Prenota online e risparmia 10%" per incentivare l'uso</li>
+                                    <li><strong>Menziona in negozio</strong> - Informa i clienti che possono prenotare online</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div id="linkCopiedMessage" class="success-message" style="display: none; margin-top: 1rem;">
+                            ✓ Link copiato negli appunti!
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Company Profile Section -->
+                <div class="settings-section">
+                    <h3>Profilo Azienda</h3>
+                    <form id="companyProfileForm" class="settings-form">
+                        <div class="form-group">
+                            <label>Nome Azienda</label>
+                            <input type="text" id="companyName" placeholder="Nome della tua azienda" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Partita IVA / Codice Fiscale</label>
+                            <input type="text" id="companyVat" placeholder="P.IVA o CF">
+                        </div>
+                        <div class="form-group">
+                            <label>Indirizzo</label>
+                            <input type="text" id="companyAddress" placeholder="Via, numero civico">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Città</label>
+                                <input type="text" id="companyCity" placeholder="Città">
+                            </div>
+                            <div class="form-group">
+                                <label>CAP</label>
+                                <input type="text" id="companyZip" placeholder="CAP">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Telefono</label>
+                            <input type="tel" id="companyPhone" placeholder="Telefono">
+                        </div>
+                        <div class="form-group">
+                            <label>Email Contatto</label>
+                            <input type="email" id="companyEmail" placeholder="Email principale">
+                        </div>
+                        <div class="form-group">
+                            <label>Sito Web</label>
+                            <input type="url" id="companyWebsite" placeholder="https://...">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Salva Modifiche</button>
+                    </form>
+                </div>
+
+                <!-- Account Settings -->
+                <div class="settings-section">
+                    <h3>Impostazioni Account</h3>
+                    <div class="settings-form">
+                        <div class="form-group">
+                            <label>Email Account</label>
+                            <input type="email" id="accountEmail" readonly>
+                            <small>L'email non può essere modificata</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Cambia Password</label>
+                            <div class="password-change-container">
+                                <input type="password" id="currentPassword" placeholder="Password attuale" autocomplete="current-password">
+                                <input type="password" id="newPassword" placeholder="Nuova password (min. 6 caratteri)" autocomplete="new-password">
+                                <input type="password" id="confirmPassword" placeholder="Conferma password" autocomplete="new-password">
+                                <div id="passwordStrength" class="password-strength" style="display: none;"></div>
+                                <div id="passwordMessage" class="password-message" style="display: none;"></div>
+                                <button id="changePasswordBtn" class="btn btn-primary" style="margin-top: 1rem; width: 100%;">Cambia Password</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Danger Zone -->
+                <div class="settings-section danger-zone">
+                    <h3>Area Pericolosa</h3>
+                    <div class="danger-actions">
+                        <div class="danger-item">
+                            <div>
+                                <h4>Elimina Account</h4>
+                                <p>Elimina permanentemente il tuo account e tutti i dati associati</p>
+                            </div>
+                            <button id="deleteAccountBtn" class="btn btn-danger">Elimina Account</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Booking Detail Modal -->
+        <div id="bookingDetailModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Dettagli Prenotazione</h2>
+                <div id="bookingDetails"></div>
+                <div class="booking-actions">
+                    <button id="completeBookingBtn" class="btn btn-success">Segna Completata</button>
+                    <button id="editBookingBtn" class="btn btn-primary">Modifica</button>
+                    <button id="deleteBookingBtn" class="btn btn-danger">Elimina Prenotazione</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Operator Modal -->
+        <div id="operatorModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Aggiungi Operatore</h2>
+                <form id="operatorForm">
+                    <input type="text" id="operatorName" placeholder="Nome operatore" required>
+                    <input type="email" id="operatorEmail" placeholder="Email" required>
+                    <input type="tel" id="operatorPhone" placeholder="Telefono">
+                    <select id="operatorRole">
+                        <option value="operator">Operatore</option>
+                        <option value="manager">Manager</option>
+                    </select>
+                    <button type="submit" class="btn btn-primary">Salva Operatore</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Add Booking Modal -->
+        <div id="addBookingModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Nuova Prenotazione</h2>
+                <form id="addBookingForm">
+                    <div class="form-group">
+                        <label>Nome Cliente *</label>
+                        <input type="text" id="bookingClientName" placeholder="Nome e cognome cliente" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email Cliente (opzionale)</label>
+                        <input type="email" id="bookingClientEmail" placeholder="email@cliente.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Telefono Cliente (opzionale)</label>
+                        <input type="tel" id="bookingClientPhone" placeholder="Telefono">
+                    </div>
+                    <div class="form-group">
+                        <label>Note Cliente (opzionale)</label>
+                        <textarea id="bookingClientNotes" placeholder="Allergie, preferenze, note particolari..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Servizio *</label>
+                        <select id="bookingService" required>
+                            <option value="">Seleziona servizio</option>
+                            <option value="toelettatura-completa">Toelettatura Completa</option>
+                            <option value="bagno">Bagno</option>
+                            <option value="taglio-unghie">Taglio Unghie</option>
+                            <option value="pulizia-orecchie">Pulizia Orecchie</option>
+                            <option value="taglio-pelo">Taglio Pelo</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Prezzo (€) *</label>
+                        <input type="number" id="bookingPrice" placeholder="0.00" step="0.01" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Data e Ora *</label>
+                        <input type="datetime-local" id="bookingDateTime" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Operatore (opzionale)</label>
+                        <select id="bookingOperator">
+                            <option value="">Nessun operatore assegnato</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Note (opzionale)</label>
+                        <textarea id="bookingNotes" placeholder="Note aggiuntive sulla prenotazione"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Crea Prenotazione</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="firebase-config.js"></script>
+    <script src="payment.js"></script>
+    <script src="notifications.js"></script>
+    <script src="admin.js"></script>
+    <script>
+        // Inizializza EmailJS al caricamento
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof emailjs !== 'undefined') {
+                initEmailJS();
+            }
+        });
+    </script>
+</body>
+</html>
+
