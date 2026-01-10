@@ -329,6 +329,11 @@ function initEventListeners() {
         document.getElementById('operatorModal').classList.add('show');
     });
 
+    // Icona informativa operatori
+    document.getElementById('operatorsInfoIcon')?.addEventListener('click', () => {
+        document.getElementById('operatorsInfoModal').classList.add('show');
+    });
+
     document.getElementById('operatorForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         await saveOperator();
@@ -1552,10 +1557,7 @@ function loadOperators() {
                     return !operator.companyId || operator.companyId === currentUser.uid;
                 });
                 
-                if (filtered.length === 0) {
-                    operatorsList.innerHTML = '<p>Nessun operatore aggiunto. Clicca su "Aggiungi Operatore" per iniziare.</p>';
-                    return;
-                }
+                
                 
                 filtered.forEach(doc => {
                     const operator = { id: doc.id, ...doc.data() };
