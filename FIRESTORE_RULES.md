@@ -73,6 +73,24 @@ service cloud.firestore {
       allow read, write: if request.auth != null && 
         resource.data.companyId == request.auth.uid;
     }
+    
+    // Regole per i servizi (services)
+    match /services/{serviceId} {
+      // Permetti lettura a tutti gli autenticati (filtriamo lato client per companyId)
+      allow read: if request.auth != null;
+      
+      // Permetti creazione solo se l'utente è autenticato e il companyId corrisponde
+      allow create: if request.auth != null && 
+                    request.resource.data.companyId == request.auth.uid;
+      
+      // Permetti aggiornamento solo se l'utente è autenticato e il companyId corrisponde
+      allow update: if request.auth != null && 
+                    resource.data.companyId == request.auth.uid;
+      
+      // Permetti eliminazione solo se l'utente è autenticato e il companyId corrisponde
+      allow delete: if request.auth != null && 
+                    resource.data.companyId == request.auth.uid;
+    }
   }
 }
 ```
@@ -92,6 +110,12 @@ service cloud.firestore {
 ### Aziende (companies)
 - **read**: Chiunque può leggere (per la pagina pubblica di prenotazione)
 - **write**: Solo l'azienda proprietaria può modificare
+
+### Servizi (services)
+- **read**: Tutti gli utenti autenticati possono leggere (filtriamo lato client per companyId)
+- **create**: Solo l'azienda proprietaria può creare servizi (companyId deve corrispondere)
+- **update**: Solo l'azienda proprietaria può modificare i propri servizi
+- **delete**: Solo l'azienda proprietaria può eliminare i propri servizi
 
 ## 🔧 Come Applicare le Regole
 

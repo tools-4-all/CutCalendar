@@ -79,6 +79,25 @@ service cloud.firestore {
       allow read, write: if isAuthenticated() && isOwner(subscriptionId);
     }
     
+    // Collection: services
+    // Servizi - solo il proprietario può gestire i propri servizi
+    match /services/{serviceId} {
+      // Permetti lettura a tutti gli autenticati (filtriamo lato client per companyId)
+      allow read: if isAuthenticated();
+      
+      // Permetti creazione solo se l'utente è autenticato e il companyId corrisponde
+      allow create: if isAuthenticated() && 
+                    request.resource.data.companyId == request.auth.uid;
+      
+      // Permetti aggiornamento solo se l'utente è autenticato e il companyId corrisponde
+      allow update: if isAuthenticated() && 
+                    resource.data.companyId == request.auth.uid;
+      
+      // Permetti eliminazione solo se l'utente è autenticato e il companyId corrisponde
+      allow delete: if isAuthenticated() && 
+                    resource.data.companyId == request.auth.uid;
+    }
+    
     // Blocca accesso a tutte le altre collection
     match /{document=**} {
       allow read, write: if false;

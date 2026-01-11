@@ -29,9 +29,11 @@ document.addEventListener('DOMContentLoaded', () => {
         verifySubscriptionStatus();
     }
     
-    auth.onAuthStateChanged((user) => {
+    auth.onAuthStateChanged(async (user) => {
         if (user) {
             currentUser = user;
+            // Inizializza servizi di default se necessario (solo al primo accesso)
+            await initializeDefaultServices(user.uid);
             loadAdminData();
             loadOperators();
         } else {
@@ -337,6 +339,16 @@ function initEventListeners() {
     document.getElementById('operatorForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         await saveOperator();
+    });
+
+    // Servizi
+    document.getElementById('addServiceBtn')?.addEventListener('click', () => {
+        openServiceModal();
+    });
+
+    document.getElementById('serviceForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await saveService();
     });
 
     // Prenotazioni
@@ -656,24 +668,7 @@ function loadCalendarEvents() {
                     }
                     
                     // Crea titolo evento
-                    const serviceNames = {
-                        'taglio-capelli': 'Taglio',
-                        'piega': 'Piega',
-                        'colore': 'Colore',
-                        'meches': 'Meches',
-                        'balayage': 'Balayage',
-                        'taglio-e-piega': 'Taglio e Piega',
-                        'trattamento-capelli': 'Trattamento',
-                        'styling': 'Styling',
-                        'extension': 'Extension',
-                        'trattamento-viso': 'Trattamento Viso',
-                        'manicure': 'Manicure',
-                        'pedicure': 'Pedicure',
-                        'ceretta': 'Ceretta',
-                        'massaggio': 'Massaggio',
-                        'altro': 'Altro'
-                    };
-                    const serviceName = serviceNames[booking.service] || booking.service || 'Servizio';
+                    const serviceName = getServiceName(booking.service);
                     const title = `${booking.userName || 'Cliente'} - ${serviceName}`;
                     
                     events.push({
@@ -760,24 +755,7 @@ function loadCalendarEvents() {
                                     const date = timestampToDate(booking.dateTime);
                                     if (!date || isNaN(date.getTime())) return;
                                     
-                                    const serviceNames = {
-                                        'taglio-capelli': 'Taglio',
-                                        'piega': 'Piega',
-                                        'colore': 'Colore',
-                                        'meches': 'Meches',
-                                        'balayage': 'Balayage',
-                                        'taglio-e-piega': 'Taglio e Piega',
-                                        'trattamento-capelli': 'Trattamento',
-                                        'styling': 'Styling',
-                                        'extension': 'Extension',
-                                        'trattamento-viso': 'Trattamento Viso',
-                                        'manicure': 'Manicure',
-                                        'pedicure': 'Pedicure',
-                                        'ceretta': 'Ceretta',
-                                        'massaggio': 'Massaggio',
-                                        'altro': 'Altro'
-                                    };
-                                    const serviceName = serviceNames[booking.service] || booking.service || 'Servizio';
+                                    const serviceName = getServiceName(booking.service);
                                     const title = `${booking.userName || 'Cliente'} - ${serviceName}`;
                                     
                                     events.push({
@@ -880,31 +858,13 @@ function createAdminBookingCard(booking) {
     card.style.cursor = 'pointer';
     
     const date = timestampToDate(booking.dateTime);
-    const serviceNames = {
-        'taglio-capelli': 'Taglio Capelli',
-        'piega': 'Piega',
-        'colore': 'Colore',
-        'meches': 'Meches',
-        'balayage': 'Balayage',
-        'taglio-e-piega': 'Taglio e Piega',
-        'trattamento-capelli': 'Trattamento Capelli',
-        'styling': 'Styling',
-        'extension': 'Extension',
-        'trattamento-viso': 'Trattamento Viso',
-        'manicure': 'Manicure',
-        'pedicure': 'Pedicure',
-        'ceretta': 'Ceretta',
-        'massaggio': 'Massaggio',
-        'altro': 'Altro'
-    };
-
     card.innerHTML = `
         <div class="booking-card-header">
             <h4>${booking.userName || 'Cliente'}</h4>
             <span class="booking-status ${booking.status}">${booking.status}</span>
         </div>
         <p><strong>Cliente:</strong> ${booking.userName || booking.userEmail || 'N/A'}</p>
-        <p><strong>Servizio:</strong> ${serviceNames[booking.service] || booking.service}</p>
+        <p><strong>Servizio:</strong> ${getServiceName(booking.service)}</p>
         <p><strong>Prezzo:</strong> €${(booking.price || 0).toFixed(2)}</p>
         <p><strong>Orario:</strong> ${date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</p>
         <p><strong>Pagamento:</strong> In Presenza</p>
@@ -927,23 +887,6 @@ async function showBookingDetail(bookingId) {
         const details = document.getElementById('bookingDetails');
         
         const date = timestampToDate(booking.dateTime);
-        const serviceNames = {
-            'taglio-capelli': 'Taglio Capelli',
-            'piega': 'Piega',
-            'colore': 'Colore',
-            'meches': 'Meches',
-            'balayage': 'Balayage',
-            'taglio-e-piega': 'Taglio e Piega',
-            'trattamento-capelli': 'Trattamento Capelli',
-            'styling': 'Styling',
-            'extension': 'Extension',
-            'trattamento-viso': 'Trattamento Viso',
-            'manicure': 'Manicure',
-            'pedicure': 'Pedicure',
-            'ceretta': 'Ceretta',
-            'massaggio': 'Massaggio',
-            'altro': 'Altro',
-        };
 
         details.innerHTML = `
             <div class="detail-row">
@@ -964,7 +907,7 @@ async function showBookingDetail(bookingId) {
             ` : ''}
             <div class="detail-row">
                 <span class="detail-label">Servizio:</span>
-                <span class="detail-value">${serviceNames[booking.service] || booking.service}</span>
+                <span class="detail-value">${getServiceName(booking.service)}</span>
             </div>
             <div class="detail-row">
                 <span class="detail-label">Prezzo:</span>
@@ -1451,22 +1394,9 @@ function loadAdvancedStats() {
                         .sort((a, b) => b[1] - a[1])
                         .slice(0, 5);
                     
-                    const serviceNames = {
-                        'taglio-capelli': 'Taglio Capelli',
-            'piega': 'Piega',
-            'colore': 'Colore',
-            'meches': 'Meches',
-            'taglio-e-piega': 'Taglio e Piega',
-            'trattamento-viso': 'Trattamento Viso',
-            'manicure': 'Manicure',
-            'pedicure': 'Pedicure',
-            'massaggio': 'Massaggio',
-            'ceretta': 'Ceretta',
-                    };
-                    
                     popularServicesEl.innerHTML = sortedServices.length > 0 
                         ? `<ul>${sortedServices.map(([service, count]) => 
-                            `<li><span>${serviceNames[service] || service}</span><span>${count}</span></li>`
+                            `<li><span>${getServiceName(service)}</span><span>${count}</span></li>`
                         ).join('')}</ul>`
                         : '<p>Nessun dato disponibile</p>';
                 }
@@ -1500,28 +1430,10 @@ function loadAdvancedStats() {
                 const upcomingEl = document.getElementById('upcomingBookings');
                 if (upcomingEl) {
                     if (upcoming.length > 0) {
-                        const serviceNames = {
-                            'taglio-capelli': 'Taglio Capelli',
-                            'piega': 'Piega',
-                            'colore': 'Colore',
-                            'meches': 'Meches',
-                            'balayage': 'Balayage',
-                            'taglio-e-piega': 'Taglio e Piega',
-                            'trattamento-capelli': 'Trattamento Capelli',
-                            'styling': 'Styling',
-                            'extension': 'Extension',
-                            'trattamento-viso': 'Trattamento Viso',
-                            'manicure': 'Manicure',
-                            'pedicure': 'Pedicure',
-                            'ceretta': 'Ceretta',
-                            'massaggio': 'Massaggio',
-                            'altro': 'Altro'
-                        };
-                        
                         upcomingEl.innerHTML = `<ul>${upcoming.map(doc => {
                             const booking = doc.data();
                             const date = booking.dateTime?.toDate();
-                            return `<li><span>${date ? date.toLocaleDateString('it-IT') : 'N/A'} - ${booking.userName || 'Cliente'}</span><span>${serviceNames[booking.service] || booking.service}</span></li>`;
+                            return `<li><span>${date ? date.toLocaleDateString('it-IT') : 'N/A'} - ${booking.userName || 'Cliente'}</span><span>${getServiceName(booking.service)}</span></li>`;
                         }).join('')}</ul>`;
                     } else {
                         upcomingEl.innerHTML = '<p>Nessuna prenotazione nei prossimi 7 giorni</p>';
@@ -1817,24 +1729,6 @@ async function generateReport() {
             return bookingDate >= startDate && bookingDate <= endDate;
         });
         
-        const serviceNames = {
-            'taglio-capelli': 'Taglio Capelli',
-            'piega': 'Piega',
-            'colore': 'Colore',
-            'meches': 'Meches',
-            'balayage': 'Balayage',
-            'taglio-e-piega': 'Taglio e Piega',
-            'trattamento-capelli': 'Trattamento Capelli',
-            'styling': 'Styling',
-            'extension': 'Extension',
-            'trattamento-viso': 'Trattamento Viso',
-            'manicure': 'Manicure',
-            'pedicure': 'Pedicure',
-            'ceretta': 'Ceretta',
-            'massaggio': 'Massaggio',
-            'altro': 'Altro',
-        };
-        
         let totalRevenue = 0;
         let totalRevenueConfirmed = 0;
         const serviceStats = {};
@@ -1865,8 +1759,8 @@ async function generateReport() {
         await new Promise(resolve => setTimeout(resolve, 500));
         
         // Genera PDF e CSV
-        await generatePDFReport(bookings, totalRevenue, totalRevenueConfirmed, statusCounts, serviceStats, serviceNames, startDate, endDate);
-        generateCSVReport(bookings, totalRevenue, totalRevenueConfirmed, statusCounts, serviceStats, serviceNames, startDate, endDate);
+        await generatePDFReport(bookings, totalRevenue, totalRevenueConfirmed, statusCounts, serviceStats, startDate, endDate);
+        generateCSVReport(bookings, totalRevenue, totalRevenueConfirmed, statusCounts, serviceStats, startDate, endDate);
         
         // Mostra messaggio di successo
         const reportBtn = document.getElementById('generateReportBtn');
@@ -1888,7 +1782,7 @@ async function generateReport() {
 }
 
 // Genera PDF del Report
-async function generatePDFReport(bookings, totalRevenue, totalRevenueConfirmed, statusCounts, serviceStats, serviceNames, startDate, endDate) {
+async function generatePDFReport(bookings, totalRevenue, totalRevenueConfirmed, statusCounts, serviceStats, startDate, endDate) {
     try {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
@@ -1996,7 +1890,7 @@ async function generatePDFReport(bookings, totalRevenue, totalRevenueConfirmed, 
                     
                     doc.setFontSize(10);
                     doc.setTextColor(...darkGray);
-                    doc.text(serviceNames[service] || service, 15, yPos);
+                    doc.text(getServiceName(service), 15, yPos);
                     doc.text(stats.count.toString(), 120, yPos);
                     doc.setFont('helvetica', 'bold');
                     doc.setTextColor(...secondaryColor);
@@ -2111,7 +2005,7 @@ async function generatePDFReport(bookings, totalRevenue, totalRevenueConfirmed, 
                     const date = booking.dateTime?.toDate();
                     const dateStr = date ? date.toLocaleDateString('it-IT') : 'N/A';
                     const clientName = (booking.userName || booking.userEmail || 'N/A').substring(0, 25);
-                    const service = (serviceNames[booking.service] || booking.service || 'N/A').substring(0, 20);
+                    const service = getServiceName(booking.service).substring(0, 20);
                     const price = booking.price || 0;
                     const status = booking.status || 'pending';
                     
@@ -2168,7 +2062,7 @@ async function generatePDFReport(bookings, totalRevenue, totalRevenueConfirmed, 
 }
 
 // Genera CSV del Report
-function generateCSVReport(bookings, totalRevenue, totalRevenueConfirmed, statusCounts, serviceStats, serviceNames, startDate, endDate) {
+function generateCSVReport(bookings, totalRevenue, totalRevenueConfirmed, statusCounts, serviceStats, startDate, endDate) {
     try {
         const csvLines = [];
         
@@ -2196,7 +2090,7 @@ function generateCSVReport(bookings, totalRevenue, totalRevenueConfirmed, status
             Object.entries(serviceStats)
                 .sort((a, b) => b[1].revenue - a[1].revenue)
                 .forEach(([service, stats]) => {
-                    csvLines.push(`${serviceNames[service] || service},${stats.count},€${stats.revenue.toFixed(2)}`);
+                    csvLines.push(`${getServiceName(service)},${stats.count},€${stats.revenue.toFixed(2)}`);
                 });
             csvLines.push('');
         }
@@ -2217,7 +2111,7 @@ function generateCSVReport(bookings, totalRevenue, totalRevenueConfirmed, status
                 const clientName = booking.userName || booking.userEmail || 'N/A';
                 const email = booking.userEmail || '';
                 const phone = booking.userPhone || '';
-                const service = serviceNames[booking.service] || booking.service || 'N/A';
+                const service = getServiceName(booking.service);
                 const price = booking.price || 0;
                 const status = booking.status || 'pending';
                 const payment = booking.paymentMethod || 'presenza';
@@ -2252,24 +2146,6 @@ async function exportData() {
             .orderBy('dateTime', 'desc')
             .get();
         
-        const serviceNames = {
-            'taglio-capelli': 'Taglio Capelli',
-            'piega': 'Piega',
-            'colore': 'Colore',
-            'meches': 'Meches',
-            'balayage': 'Balayage',
-            'taglio-e-piega': 'Taglio e Piega',
-            'trattamento-capelli': 'Trattamento Capelli',
-            'styling': 'Styling',
-            'extension': 'Extension',
-            'trattamento-viso': 'Trattamento Viso',
-            'manicure': 'Manicure',
-            'pedicure': 'Pedicure',
-            'ceretta': 'Ceretta',
-            'massaggio': 'Massaggio',
-            'altro': 'Altro',
-        };
-        
         const csvData = [
             ['Data', 'Ora', 'Cliente', 'Servizio', 'Stato', 'Pagamento'].join(',')
         ];
@@ -2283,7 +2159,7 @@ async function exportData() {
                 booking.userName || 'N/A',
                 booking.userEmail || '',
                 booking.userPhone || '',
-                serviceNames[booking.service] || booking.service,
+                getServiceName(booking.service),
                 booking.status,
                 booking.paymentMethod
             ].join(','));
@@ -2319,6 +2195,8 @@ async function sendStatusNotification(booking, status) {
 
 // Settings Management
 async function loadSettings() {
+    // Carica servizi quando si apre la sezione impostazioni
+    loadServices();
     if (!currentUser) return;
 
     try {
@@ -2394,6 +2272,309 @@ async function loadSettings() {
     } catch (error) {
         console.error('Errore nel caricamento impostazioni:', error);
     }
+}
+
+// Gestione Servizi
+let servicesUnsubscribe = null;
+let servicesCache = {}; // Cache servizi per accesso rapido
+
+// Inizializza servizi di default per un nuovo account
+async function initializeDefaultServices(userId) {
+    if (!userId) return;
+    
+    try {
+        // Verifica se l'utente ha già servizi
+        const existingServices = await db.collection('services')
+            .where('companyId', '==', userId)
+            .limit(1)
+            .get();
+        
+        // Se ha già servizi, non inizializzare
+        if (!existingServices.empty) {
+            console.log('Servizi già presenti, skip inizializzazione');
+            return;
+        }
+        
+        // Servizi di default per saloni/centri estetici
+        const defaultServices = [
+            { name: 'Taglio Capelli', duration: 45, defaultPrice: 30.00 },
+            { name: 'Piega', duration: 60, defaultPrice: 25.00 },
+            { name: 'Colore', duration: 120, defaultPrice: 60.00 },
+            { name: 'Meches', duration: 180, defaultPrice: 80.00 },
+            { name: 'Balayage', duration: 180, defaultPrice: 90.00 },
+            { name: 'Taglio e Piega', duration: 90, defaultPrice: 50.00 },
+            { name: 'Trattamento Capelli', duration: 60, defaultPrice: 40.00 },
+            { name: 'Styling', duration: 45, defaultPrice: 35.00 },
+            { name: 'Trattamento Viso', duration: 60, defaultPrice: 40.00 },
+            { name: 'Manicure', duration: 45, defaultPrice: 20.00 },
+            { name: 'Pedicure', duration: 60, defaultPrice: 25.00 },
+            { name: 'Ceretta', duration: 30, defaultPrice: 15.00 },
+            { name: 'Massaggio', duration: 60, defaultPrice: 50.00 }
+        ];
+        
+        // Crea i servizi di default
+        const batch = db.batch();
+        const timestamp = getTimestamp();
+        
+        defaultServices.forEach(service => {
+            const serviceRef = db.collection('services').doc();
+            batch.set(serviceRef, {
+                name: service.name,
+                duration: service.duration,
+                defaultPrice: service.defaultPrice,
+                companyId: userId,
+                createdAt: timestamp,
+                updatedAt: timestamp
+            });
+        });
+        
+        await batch.commit();
+        console.log('Servizi di default inizializzati per utente:', userId);
+    } catch (error) {
+        console.error('Errore nell\'inizializzazione servizi di default:', error);
+        // Non bloccare il processo se fallisce
+    }
+}
+
+function loadServices() {
+    if (servicesUnsubscribe) {
+        servicesUnsubscribe();
+    }
+
+    if (!currentUser) return;
+
+    try {
+        const servicesList = document.getElementById('servicesList');
+        if (!servicesList) return;
+        
+        // Carica servizi filtrati per companyId
+        servicesUnsubscribe = db.collection('services')
+            .where('companyId', '==', currentUser.uid)
+            .onSnapshot((snapshot) => {
+                servicesList.innerHTML = '';
+                
+                if (snapshot.empty) {
+                    servicesList.innerHTML = '<p style="color: #666; padding: 1rem;">Nessun servizio aggiunto. Clicca su "Aggiungi Servizio" per iniziare.</p>';
+                    return;
+                }
+                
+                // Aggiorna cache
+                servicesCache = {};
+                
+                // Ordina per nome lato client
+                const servicesArray = [];
+                snapshot.forEach(doc => {
+                    const service = { id: doc.id, ...doc.data() };
+                    servicesCache[doc.id] = service;
+                    servicesArray.push(service);
+                });
+                
+                // Ordina per nome
+                servicesArray.sort((a, b) => {
+                    const nameA = (a.name || '').toLowerCase();
+                    const nameB = (b.name || '').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                });
+                
+                // Aggiungi le card ordinate
+                servicesArray.forEach(service => {
+                    const serviceCard = createServiceCard(service);
+                    servicesList.appendChild(serviceCard);
+                });
+                
+                // Aggiorna tutti i select dei servizi
+                updateServiceSelects();
+            }, (error) => {
+                console.error('Errore nel caricamento servizi:', error);
+                if (servicesList) {
+                    let errorMessage = 'Errore nel caricamento servizi. ';
+                    if (error.code === 'permission-denied') {
+                        errorMessage += 'Verifica le regole Firestore.';
+                    } else if (error.code === 'failed-precondition') {
+                        errorMessage += 'È necessario creare un indice Firestore. Controlla la console per il link.';
+                    } else {
+                        errorMessage += error.message;
+                    }
+                    servicesList.innerHTML = `<p style="color: red;">${errorMessage}</p>`;
+                }
+            });
+    } catch (error) {
+        console.error('Errore nel caricamento servizi:', error);
+    }
+}
+
+function createServiceCard(service) {
+    const card = document.createElement('div');
+    card.className = 'operator-card';
+    card.style.marginBottom = '1rem';
+    card.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div style="flex: 1;">
+                <h4 style="margin: 0 0 0.5rem 0;">${service.name}</h4>
+                <p style="margin: 0.25rem 0; color: #666;"><strong>Durata:</strong> ${service.duration ? service.duration + ' minuti' : 'Non specificata (default: 60 minuti)'}</p>
+                ${service.defaultPrice ? `<p style="margin: 0.25rem 0; color: #666;"><strong>Prezzo:</strong> €${parseFloat(service.defaultPrice).toFixed(2)}</p>` : ''}
+            </div>
+            <div class="operator-actions">
+                <button class="btn btn-secondary" onclick="editService('${service.id}')" style="margin-right: 0.5rem;">Modifica</button>
+                <button class="btn btn-danger" onclick="deleteService('${service.id}')">Elimina</button>
+            </div>
+        </div>
+    `;
+    return card;
+}
+
+function openServiceModal(serviceId = null) {
+    const modal = document.getElementById('serviceModal');
+    const form = document.getElementById('serviceForm');
+    const title = document.getElementById('serviceModalTitle');
+    
+    if (serviceId) {
+        // Modifica servizio esistente
+        title.textContent = 'Modifica Servizio';
+        db.collection('services').doc(serviceId).get().then(doc => {
+            if (doc.exists) {
+                const service = doc.data();
+                document.getElementById('serviceName').value = service.name;
+                document.getElementById('serviceDuration').value = service.duration || '';
+                document.getElementById('servicePrice').value = service.defaultPrice || '';
+                document.getElementById('serviceId').value = serviceId;
+            }
+        });
+    } else {
+        // Nuovo servizio
+        title.textContent = 'Aggiungi Servizio';
+        form.reset();
+        document.getElementById('serviceId').value = '';
+    }
+    
+    modal.classList.add('show');
+}
+
+function editService(serviceId) {
+    openServiceModal(serviceId);
+}
+
+async function saveService() {
+    if (!currentUser) return;
+
+    const serviceId = document.getElementById('serviceId').value;
+    const durationValue = document.getElementById('serviceDuration').value;
+    const serviceData = {
+        name: document.getElementById('serviceName').value.trim(),
+        duration: durationValue ? parseInt(durationValue) : null,
+        defaultPrice: document.getElementById('servicePrice').value ? parseFloat(document.getElementById('servicePrice').value) : null,
+        companyId: currentUser.uid,
+        createdAt: serviceId ? undefined : getTimestamp(),
+        updatedAt: getTimestamp()
+    };
+
+    // Rimuovi campi undefined
+    Object.keys(serviceData).forEach(key => {
+        if (serviceData[key] === undefined) {
+            delete serviceData[key];
+        }
+    });
+
+    try {
+        if (serviceId) {
+            // Aggiorna servizio esistente
+            await db.collection('services').doc(serviceId).update(serviceData);
+        } else {
+            // Crea nuovo servizio
+            await db.collection('services').add(serviceData);
+        }
+        
+        document.getElementById('serviceForm').reset();
+        document.getElementById('serviceModal').classList.remove('show');
+        loadServices();
+        alert('Servizio salvato con successo!');
+    } catch (error) {
+        console.error('Errore nel salvataggio servizio:', error);
+        alert('Errore nel salvataggio: ' + error.message);
+    }
+}
+
+async function deleteService(serviceId) {
+    if (!confirm('Sei sicuro di voler eliminare questo servizio?')) return;
+
+    try {
+        await db.collection('services').doc(serviceId).delete();
+        loadServices();
+        alert('Servizio eliminato con successo!');
+    } catch (error) {
+        console.error('Errore nell\'eliminazione servizio:', error);
+        alert('Errore nell\'eliminazione: ' + error.message);
+    }
+}
+
+function updateServiceSelects() {
+    if (!currentUser) return;
+    
+    db.collection('services')
+        .where('companyId', '==', currentUser.uid)
+        .get()
+        .then(snapshot => {
+            const selects = ['filterService', 'filterBookingService', 'bookingService'];
+            selects.forEach(selectId => {
+                const select = document.getElementById(selectId);
+                if (!select) return;
+                
+                // Mantieni l'opzione "Tutti" o "Seleziona"
+                const firstOption = select.querySelector('option[value=""]');
+                select.innerHTML = '';
+                if (firstOption) {
+                    select.appendChild(firstOption);
+                }
+                
+                // Ordina servizi per nome
+                const servicesArray = [];
+                snapshot.forEach(doc => {
+                    servicesArray.push({ id: doc.id, ...doc.data() });
+                });
+                
+                servicesArray.sort((a, b) => {
+                    const nameA = (a.name || '').toLowerCase();
+                    const nameB = (b.name || '').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                });
+                
+                servicesArray.forEach(service => {
+                    const option = document.createElement('option');
+                    option.value = service.id;
+                    option.textContent = service.name;
+                    select.appendChild(option);
+                });
+            });
+        })
+        .catch(error => {
+            console.error('Errore nel caricamento servizi per select:', error);
+        });
+}
+
+// Helper per ottenere il nome del servizio (da cache o fallback)
+function getServiceName(serviceId) {
+    if (servicesCache[serviceId]) {
+        return servicesCache[serviceId].name;
+    }
+    // Fallback per servizi vecchi hardcoded
+    const fallbackNames = {
+        'taglio-capelli': 'Taglio Capelli',
+        'piega': 'Piega',
+        'colore': 'Colore',
+        'meches': 'Meches',
+        'balayage': 'Balayage',
+        'taglio-e-piega': 'Taglio e Piega',
+        'trattamento-capelli': 'Trattamento Capelli',
+        'styling': 'Styling',
+        'extension': 'Extension',
+        'trattamento-viso': 'Trattamento Viso',
+        'manicure': 'Manicure',
+        'pedicure': 'Pedicure',
+        'ceretta': 'Ceretta',
+        'massaggio': 'Massaggio',
+        'altro': 'Altro'
+    };
+    return fallbackNames[serviceId] || serviceId || 'Servizio';
 }
 
 // Carica e mostra il link di prenotazione
@@ -2738,6 +2919,9 @@ function generateQRCode(link) {
             colorLight: '#ffffff',
             correctLevel: QRCode.CorrectLevel.H
         });
+        
+        // Mostra sezione QR code
+        qrSection.style.display = 'block';
         
         // Mostra pulsante download quando il QR code è generato
         if (downloadBtn) {
@@ -3477,14 +3661,6 @@ function generateServicePerformanceChart(bookings) {
         analyticsCharts.servicePerformance.destroy();
     }
     
-    const serviceNames = {
-        'toelettatura-completa': 'Toelettatura Completa',
-        'bagno': 'Bagno',
-        'taglio-unghie': 'Taglio Unghie',
-        'pulizia-orecchie': 'Pulizia Orecchie',
-        'taglio-pelo': 'Taglio Pelo'
-    };
-    
     const serviceStats = {};
     const now = new Date();
     
@@ -3504,7 +3680,7 @@ function generateServicePerformanceChart(bookings) {
         }
     });
     
-    const labels = Object.keys(serviceStats).map(s => serviceNames[s] || s);
+    const labels = Object.keys(serviceStats).map(s => getServiceName(s));
     const countData = Object.values(serviceStats).map(s => s.count);
     const revenueData = Object.values(serviceStats).map(s => s.revenue);
     
