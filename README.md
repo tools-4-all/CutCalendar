@@ -172,8 +172,8 @@ Il sistema include una pagina pubblica (`booking.html`) che permette ai clienti 
 
 CutCalendar offre diversi piani:
 
-- **FREE**: Fino a 50 prenotazioni/mese, 2 operatori, 1 sede
-- **PRO Mensile**: €19,99/mese - Prenotazioni illimitate, fino a 5 operatori, 3 sedi
+- **FREE**: Fino a 20 prenotazioni/mese, 3 operatori
+- **PRO Mensile**: €19,99/mese - Prenotazioni illimitate, fino a 5 operatori
 - **PRO Annuale**: €119,99/anno - Stesse funzionalità PRO con risparmio di €120/anno
 
 Gli abbonamenti vengono gestiti tramite Stripe e si rinnovano automaticamente.
