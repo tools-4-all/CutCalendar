@@ -487,7 +487,12 @@ function initEventListeners() {
         });
     }
 
-    document.getElementById('upgradePlanBtn')?.addEventListener('click', () => {
+    document.getElementById('upgradePlanBtn')?.addEventListener('click', async () => {
+        // Mostra la sezione abbonamenti scrollando alla sezione piani
+        const plansSection = document.querySelector('.plans-grid');
+        if (plansSection) {
+            plansSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
         document.querySelector('.plans-grid')?.scrollIntoView({ behavior: 'smooth' });
     });
 
@@ -533,8 +538,36 @@ function initEventListeners() {
     }
 
     document.querySelectorAll('.plan-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', async (e) => {
             const plan = e.target.dataset.plan;
+            const price = e.target.dataset.price;
+            
+            // Se è un piano a pagamento (monthly o yearly), avvia checkout Stripe
+            if (plan === 'monthly' || plan === 'yearly') {
+                if (!currentUser) {
+                    alert('Devi effettuare il login per sottoscrivere un abbonamento');
+                    return;
+                }
+                
+                const planName = plan === 'monthly' ? 'PRO Mensile' : 'PRO Annuale';
+                const confirmUpgrade = confirm(`Vuoi sottoscrivere l'abbonamento ${planName}?`);
+                if (!confirmUpgrade) return;
+                
+                try {
+                    // Avvia checkout Stripe tramite Firebase Functions
+                    if (typeof handleSubscriptionCheckout === 'function') {
+                        await handleSubscriptionCheckout(plan, price);
+                    } else {
+                        alert('Sistema di pagamento non disponibile. Contatta il supporto: support@cutcalendar.com');
+                    }
+                } catch (error) {
+                    console.error('Errore nel checkout:', error);
+                    alert('Errore durante l\'avvio del pagamento. Riprova più tardi.');
+                }
+                return;
+            }
+            
+            // Per altri piani (free, enterprise), usa la gestione legacy
             handlePlanChange(plan);
         });
     });

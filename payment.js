@@ -1,8 +1,13 @@
 // Sistema di pagamento con Stripe per abbonamenti
 // IMPORTANTE: Configura Stripe su https://stripe.com/
 // e aggiungi la tua chiave pubblica qui
+// 
+// Per ottenere la chiave pubblica:
+// 1. Vai su https://dashboard.stripe.com/apikeys
+// 2. Copia la "Publishable key" (inizia con pk_test_ per test o pk_live_ per produzione)
+// 3. Incollala qui sotto
 
-const STRIPE_PUBLIC_KEY = 'YOUR_STRIPE_PUBLIC_KEY';
+const STRIPE_PUBLIC_KEY = 'pk_live_51SoKTkIXTFeCafw3ExRZ2hd32k6vqfChqryXs5VKRQlb8JBPTK50YSXZLOLUShmPIoPWyy8dvyX56vxyYLl2hz8h00Y7KQqdwq'; // Sostituisci con la tua chiave pubblica Stripe
 
 // Inizializza Stripe
 let stripe = null;
@@ -44,62 +49,79 @@ window.handleSubscriptionCheckout = async function(planType, price) {
         const checkoutSession = await createCheckoutSession(planType, price);
         
         if (checkoutSession && checkoutSession.url) {
+            console.log('[Checkout] Reindirizzamento a Stripe:', checkoutSession.url);
             window.location.href = checkoutSession.url;
         } else {
-            alert('Il sistema di pagamento è in fase di configurazione. Per completare l\'abbonamento, contatta il supporto: support@cutcalendar.com');
+            console.error('[Checkout] Sessione checkout non valida:', checkoutSession);
+            alert('Errore: La sessione di pagamento non è stata creata correttamente. Verifica che le Firebase Functions siano deployate e configurate.');
         }
     } catch (error) {
-        console.error('Errore nel checkout abbonamento:', error);
-        alert('Errore durante l\'avvio del pagamento. Riprova più tardi.');
+        console.error('[Checkout] Errore nel checkout abbonamento:', error);
+        
+        let errorMessage = 'Errore durante l\'avvio del pagamento. ';
+        
+        if (error.message?.includes('not found') || error.message?.includes('non trovata')) {
+            errorMessage += 'Le Firebase Functions non sono deployate. Esegui: firebase deploy --only functions';
+        } else if (error.message?.includes('unauthenticated')) {
+            errorMessage += 'Devi essere autenticato per completare il pagamento.';
+        } else if (error.message) {
+            errorMessage += error.message;
+        } else {
+            errorMessage += 'Riprova più tardi o contatta il supporto.';
+        }
+        
+        alert(errorMessage);
     }
 };
 
 // Crea sessione Checkout Stripe
 async function createCheckoutSession(planType, price) {
     try {
-        if (typeof firebase !== 'undefined' && firebase.functions) {
-            const functions = firebase.functions();
-            const createCheckoutSession = functions.httpsCallable('createSubscriptionCheckout');
-            
-            const result = await createCheckoutSession({
-                planType: planType,
-                price: price,
-                userId: currentUser.uid,
-                userEmail: currentUser.email
-            });
-            
+        console.log('[Checkout] Inizio creazione sessione checkout', { planType, price });
+        
+        if (typeof firebase === 'undefined') {
+            console.error('[Checkout] Firebase non è definito');
+            throw new Error('Firebase non è disponibile');
+        }
+        
+        if (!firebase.functions) {
+            console.error('[Checkout] Firebase Functions non è disponibile');
+            throw new Error('Firebase Functions non è disponibile');
+        }
+        
+        const functions = firebase.functions();
+        const createCheckoutSession = functions.httpsCallable('createSubscriptionCheckout');
+        
+        console.log('[Checkout] Chiamata Firebase Function createSubscriptionCheckout');
+        
+        const result = await createCheckoutSession({
+            planType: planType,
+            userEmail: currentUser?.email
+        });
+        
+        console.log('[Checkout] Risultato dalla Firebase Function:', result);
+        
+        if (result && result.data) {
+            console.log('[Checkout] Sessione creata con successo:', result.data);
             return result.data;
+        } else {
+            console.error('[Checkout] Risultato non valido:', result);
+            throw new Error('Risultato non valido dalla Firebase Function');
         }
-        
-        const backendUrl = 'YOUR_BACKEND_URL/api/create-checkout-session';
-        
-        try {
-            const response = await fetch(backendUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${await currentUser.getIdToken()}`
-                },
-                body: JSON.stringify({
-                    planType: planType,
-                    price: price,
-                    userId: currentUser.uid,
-                    userEmail: currentUser.email
-                })
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                return data;
-            }
-        } catch (fetchError) {
-            console.warn('Backend non disponibile:', fetchError);
-        }
-        
-        return null;
     } catch (error) {
-        console.error('Errore nella creazione sessione checkout:', error);
-        return null;
+        console.error('[Checkout] Errore nella creazione sessione checkout:', error);
+        console.error('[Checkout] Dettagli errore:', {
+            message: error.message,
+            code: error.code,
+            details: error.details
+        });
+        
+        // Se è un errore di funzione non trovata, suggerisci di fare il deploy
+        if (error.code === 'not-found' || error.message?.includes('not found')) {
+            throw new Error('Firebase Function non trovata. Assicurati di aver fatto il deploy delle functions: firebase deploy --only functions');
+        }
+        
+        throw error;
     }
 }
 
