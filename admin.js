@@ -24,10 +24,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initTabs();
     loadAdminData();
     
-    // Verifica stato abbonamento dopo redirect da Stripe
-    if (typeof verifySubscriptionStatus === 'function') {
-        verifySubscriptionStatus();
-    }
     
     auth.onAuthStateChanged(async (user) => {
         if (user) {
@@ -487,18 +483,6 @@ function initEventListeners() {
         });
     }
 
-    document.getElementById('upgradePlanBtn')?.addEventListener('click', async () => {
-        // Mostra la sezione abbonamenti scrollando alla sezione piani
-        const plansSection = document.querySelector('.plans-grid');
-        if (plansSection) {
-            plansSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-        document.querySelector('.plans-grid')?.scrollIntoView({ behavior: 'smooth' });
-    });
-
-    document.getElementById('manageBillingBtn')?.addEventListener('click', () => {
-        alert('Funzionalità di gestione fatturazione in arrivo. Per ora, contatta il supporto per modifiche al piano.');
-    });
 
     // Booking Link
     const copyLinkBtn = document.getElementById('copyLinkBtn');
@@ -537,40 +521,6 @@ function initEventListeners() {
         });
     }
 
-    document.querySelectorAll('.plan-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            const plan = e.target.dataset.plan;
-            const price = e.target.dataset.price;
-            
-            // Se è un piano a pagamento (monthly o yearly), avvia checkout Stripe
-            if (plan === 'monthly' || plan === 'yearly') {
-                if (!currentUser) {
-                    alert('Devi effettuare il login per sottoscrivere un abbonamento');
-                    return;
-                }
-                
-                const planName = plan === 'monthly' ? 'PRO Mensile' : 'PRO Annuale';
-                const confirmUpgrade = confirm(`Vuoi sottoscrivere l'abbonamento ${planName}?`);
-                if (!confirmUpgrade) return;
-                
-                try {
-                    // Avvia checkout Stripe tramite Firebase Functions
-                    if (typeof handleSubscriptionCheckout === 'function') {
-                        await handleSubscriptionCheckout(plan, price);
-                    } else {
-                        alert('Sistema di pagamento non disponibile. Contatta il supporto: support@cutcalendar.com');
-                    }
-                } catch (error) {
-                    console.error('Errore nel checkout:', error);
-                    alert('Errore durante l\'avvio del pagamento. Riprova più tardi.');
-                }
-                return;
-            }
-            
-            // Per altri piani (free, enterprise), usa la gestione legacy
-            handlePlanChange(plan);
-        });
-    });
 
     document.getElementById('deleteAccountBtn')?.addEventListener('click', async () => {
         if (confirm('Sei sicuro di voler eliminare il tuo account? Questa azione è irreversibile e eliminerà tutti i dati.')) {
@@ -1541,33 +1491,6 @@ function createOperatorCard(operator) {
 async function saveOperator() {
     if (!currentUser) return;
 
-    // Verifica il limite di operatori per utenti FREE
-    const subscriptionDoc = await db.collection('subscriptions').doc(currentUser.uid).get();
-    const subscription = subscriptionDoc.exists ? subscriptionDoc.data() : null;
-    
-    // Verifica se l'utente ha un abbonamento FREE o nessun abbonamento
-    const isFreePlan = !subscription || 
-                      !subscription.plan || 
-                      subscription.plan === 'free' ||
-                      (subscription.status !== 'active');
-    
-    const FREE_PLAN_OPERATORS_LIMIT = 3;
-    
-    // Conta gli operatori esistenti per questa azienda
-    const operatorsSnapshot = await db.collection('operators')
-        .where('companyId', '==', currentUser.uid)
-        .get();
-    const currentOperatorsCount = operatorsSnapshot.size;
-    
-    // Verifica se si sta aggiungendo un nuovo operatore o modificando uno esistente
-    const operatorForm = document.getElementById('operatorForm');
-    const editingOperatorId = operatorForm.dataset.editingOperatorId;
-    
-    // Controlla il limite solo per utenti FREE (PRO ha fino a 5 operatori)
-    if (isFreePlan && !editingOperatorId && currentOperatorsCount >= FREE_PLAN_OPERATORS_LIMIT) {
-        showOperatorsLimitExceededModal(currentOperatorsCount, FREE_PLAN_OPERATORS_LIMIT);
-        return;
-    }
 
     const operatorData = {
         companyId: currentUser.uid, // Associa operatore all'azienda
@@ -2283,55 +2206,6 @@ async function loadSettings() {
             document.getElementById('companyWebsite').value = company.website || '';
         }
 
-        // Carica abbonamento
-        const subscriptionDoc = await db.collection('subscriptions').doc(currentUser.uid).get();
-        if (subscriptionDoc.exists) {
-            const subscription = subscriptionDoc.data();
-            const planNames = {
-                'free': 'Piano FREE',
-                'pro': 'Piano PRO',
-                'monthly': 'PRO Mensile',
-                'yearly': 'PRO Annuale',
-                'enterprise': 'Piano ENTERPRISE'
-            };
-            const planDetails = {
-                'free': 'Fino a 20 prenotazioni/mese - 3 operatori',
-                'pro': 'Prenotazioni illimitate - Fino a 5 operatori',
-                'monthly': 'Prenotazioni illimitate - Fino a 5 operatori - €19,99/mese',
-                'yearly': 'Prenotazioni illimitate - Fino a 5 operatori - €119,99/anno',
-                'enterprise': 'Operatori illimitati - Tutte le funzionalità'
-            };
-
-            document.getElementById('currentPlanName').textContent = planNames[subscription.plan] || 'Piano FREE';
-            document.getElementById('currentPlanDetails').textContent = planDetails[subscription.plan] || '';
-
-            if (subscription.status === 'active') {
-                document.getElementById('subscriptionStatus').textContent = 'Attivo';
-                document.getElementById('subscriptionStatus').className = 'status-badge status-active';
-            } else if (subscription.status === 'cancelled') {
-                document.getElementById('subscriptionStatus').textContent = 'Cancellato';
-                document.getElementById('subscriptionStatus').className = 'status-badge status-cancelled';
-            } else {
-                document.getElementById('subscriptionStatus').textContent = 'Inattivo';
-                document.getElementById('subscriptionStatus').className = 'status-badge status-inactive';
-            }
-
-            if (subscription.expiryDate) {
-                const expiry = subscription.expiryDate.toDate();
-                document.getElementById('subscriptionExpiry').textContent = `Scadenza: ${expiry.toLocaleDateString('it-IT')}`;
-            } else if (subscription.plan === 'monthly' || subscription.plan === 'yearly') {
-                // Per abbonamenti Stripe, mostra info dal customer portal se disponibile
-                if (subscription.stripeSubscriptionId) {
-                    document.getElementById('subscriptionExpiry').textContent = 'Abbonamento attivo - Gestisci da Stripe';
-                }
-            }
-        } else {
-            // Default a FREE se non esiste abbonamento
-            document.getElementById('currentPlanName').textContent = 'Piano FREE';
-            document.getElementById('currentPlanDetails').textContent = 'Fino a 20 prenotazioni/mese - 3 operatori';
-            document.getElementById('subscriptionStatus').textContent = 'Attivo';
-            document.getElementById('subscriptionStatus').className = 'status-badge status-active';
-        }
 
         // Carica email account
         document.getElementById('accountEmail').value = currentUser.email || '';
@@ -3225,62 +3099,6 @@ function hidePasswordStrength() {
     strengthDiv.style.display = 'none';
 }
 
-async function handlePlanChange(plan) {
-    if (!currentUser) return;
-
-    if (plan === 'free') {
-        alert('Sei già sul piano FREE');
-        return;
-    }
-
-    // Gestisci abbonamenti mensili e annuali con Stripe
-    if (plan === 'monthly' || plan === 'yearly') {
-        const planName = plan === 'monthly' ? 'PRO Mensile (€19,99/mese)' : 'PRO Annuale (€119,99/anno)';
-        const price = plan === 'monthly' ? '19.99' : '119.99';
-        
-        const confirmUpgrade = confirm(`Vuoi sottoscrivere l'abbonamento ${planName}?`);
-        if (!confirmUpgrade) return;
-
-        try {
-            // Avvia checkout Stripe
-            if (typeof handleSubscriptionCheckout === 'function') {
-                await handleSubscriptionCheckout(plan, price);
-            } else {
-                alert('Sistema di pagamento non disponibile. Contatta il supporto: support@petcalendar.com');
-            }
-        } catch (error) {
-            console.error('Errore nel checkout:', error);
-            alert('Errore durante l\'avvio del pagamento. Riprova più tardi.');
-        }
-        return;
-    }
-
-    if (plan === 'enterprise') {
-        alert('Per il piano Enterprise, contatta il supporto: support@petcalendar.com');
-        return;
-    }
-
-    // Gestione legacy per altri piani
-    const confirmUpgrade = confirm(`Vuoi passare al piano ${plan.toUpperCase()}?`);
-    if (!confirmUpgrade) return;
-
-    try {
-        const subscriptionData = {
-            plan: plan,
-            status: 'active',
-            startDate: getTimestamp(),
-            expiryDate: null,
-            updatedAt: getTimestamp()
-        };
-
-        await db.collection('subscriptions').doc(currentUser.uid).set(subscriptionData, { merge: true });
-        alert(`Piano ${plan.toUpperCase()} attivato con successo!`);
-        loadSettings();
-    } catch (error) {
-        console.error('Errore nel cambio piano:', error);
-        alert('Errore nell\'aggiornamento del piano: ' + error.message);
-    }
-}
 
 async function deleteAccount() {
     if (!currentUser) return;
@@ -3302,9 +3120,6 @@ async function deleteAccount() {
         
         // Elimina profilo azienda
         batch.delete(db.collection('companies').doc(currentUser.uid));
-        
-        // Elimina abbonamento
-        batch.delete(db.collection('subscriptions').doc(currentUser.uid));
 
         await batch.commit();
 
@@ -3440,38 +3255,6 @@ async function createAdminBooking() {
         const form = document.getElementById('addBookingForm');
         const editingBookingId = form.dataset.editingBookingId;
         
-        // Controlla il limite di prenotazioni mensili per utenti FREE (solo per nuove prenotazioni)
-        if (!editingBookingId) {
-            const subscriptionDoc = await db.collection('subscriptions').doc(currentUser.uid).get();
-            const subscription = subscriptionDoc.exists ? subscriptionDoc.data() : null;
-            
-            // Verifica se l'utente ha un abbonamento FREE o nessun abbonamento
-            const isFreePlan = !subscription || 
-                              !subscription.plan || 
-                              subscription.plan === 'free' ||
-                              (subscription.status !== 'active');
-            
-            if (isFreePlan) {
-                // Conta le prenotazioni del mese corrente
-                const now = new Date();
-                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-                const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-                
-                const monthlyBookingsQuery = await db.collection('bookings')
-                    .where('companyId', '==', currentUser.uid)
-                    .where('dateTime', '>=', firebase.firestore.Timestamp.fromDate(startOfMonth))
-                    .where('dateTime', '<=', firebase.firestore.Timestamp.fromDate(endOfMonth))
-                    .get();
-                
-                const monthlyBookingsCount = monthlyBookingsQuery.size;
-                const FREE_PLAN_LIMIT = 20;
-                
-                if (monthlyBookingsCount >= FREE_PLAN_LIMIT) {
-                    showLimitExceededModal(monthlyBookingsCount, FREE_PLAN_LIMIT);
-                    return;
-                }
-            }
-        }
         
         const bookingData = {
             companyId: currentUser.uid, // Associa prenotazione all'azienda
@@ -3562,106 +3345,6 @@ async function createAdminBooking() {
     }
 }
 
-// Mostra modal limite prenotazioni superato
-function showLimitExceededModal(currentCount, maxCount) {
-    const modal = document.getElementById('limitExceededModal');
-    const currentCountEl = document.getElementById('limitCurrentCount');
-    const maxCountEl = document.getElementById('limitMaxCount');
-    const messageEl = document.getElementById('limitMessage');
-    
-    if (!modal || !currentCountEl || !maxCountEl || !messageEl) {
-        // Fallback a alert se il modal non esiste
-        alert(`Hai superato il limite di ${maxCount} prenotazioni mensili del piano FREE.\n\n` +
-              `Prenotazioni del mese corrente: ${currentCount}/${maxCount}\n\n` +
-              `Per creare più prenotazioni, passa al piano PRO (€19,99/mese o €119,99/anno) che offre prenotazioni illimitate.\n\n` +
-              `Vai alle Impostazioni per aggiornare il tuo piano.`);
-        return;
-    }
-    
-    currentCountEl.textContent = currentCount;
-    maxCountEl.textContent = maxCount;
-    messageEl.textContent = `Hai superato il limite di ${maxCount} prenotazioni mensili del piano FREE.`;
-    
-    modal.classList.add('show');
-    
-    // Gestisci chiusura modal
-    const closeBtn = document.getElementById('limitModalCloseBtn');
-    const upgradeBtn = document.getElementById('limitModalUpgradeBtn');
-    
-    if (closeBtn) {
-        closeBtn.onclick = () => {
-            modal.classList.remove('show');
-        };
-    }
-    
-    if (upgradeBtn) {
-        upgradeBtn.onclick = () => {
-            modal.classList.remove('show');
-            // Vai alla sezione impostazioni
-            const settingsTab = document.querySelector('[data-tab="settings"]');
-            if (settingsTab) {
-                settingsTab.click();
-            }
-        };
-    }
-    
-    // Chiudi cliccando fuori dal modal
-    modal.onclick = (e) => {
-        if (e.target === modal) {
-            modal.classList.remove('show');
-        }
-    };
-}
-
-// Mostra modal limite operatori superato
-function showOperatorsLimitExceededModal(currentCount, maxCount) {
-    const modal = document.getElementById('operatorsLimitExceededModal');
-    const currentCountEl = document.getElementById('operatorsCurrentCount');
-    const maxCountEl = document.getElementById('operatorsMaxCount');
-    const messageEl = document.getElementById('operatorsLimitMessage');
-    
-    if (!modal || !currentCountEl || !maxCountEl || !messageEl) {
-        // Fallback a alert se il modal non esiste
-        alert(`Hai raggiunto il limite di ${maxCount} operatori per il tuo piano.\n\n` +
-              `Operatori attuali: ${currentCount}/${maxCount}\n\n` +
-              `Per aggiungere più operatori, passa al piano PRO (€19,99/mese o €119,99/anno) che offre fino a 5 operatori.`);
-        return;
-    }
-    
-    currentCountEl.textContent = currentCount;
-    maxCountEl.textContent = maxCount;
-    messageEl.textContent = `Hai raggiunto il limite di ${maxCount} operatori per il tuo piano.`;
-    
-    modal.classList.add('show');
-    
-    // Gestisci chiusura modal
-    const closeBtn = document.getElementById('operatorsLimitModalCloseBtn');
-    const upgradeBtn = document.getElementById('operatorsLimitModalUpgradeBtn');
-    
-    if (closeBtn) {
-        closeBtn.onclick = () => {
-            modal.classList.remove('show');
-        };
-    }
-    
-    if (upgradeBtn) {
-        upgradeBtn.onclick = () => {
-            modal.classList.remove('show');
-            // Vai alla sezione impostazioni
-            const settingsTab = document.querySelector('[data-tab="settings"]');
-            if (settingsTab) {
-                settingsTab.click();
-            }
-        };
-    }
-    
-    // Chiudi cliccando fuori dal modal
-    modal.onclick = (e) => {
-        if (e.target === modal) {
-            modal.classList.remove('show');
-        }
-    };
-}
 
 // ============================================
 // ADVANCED ANALYTICS
